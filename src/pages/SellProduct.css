@@ -1,0 +1,516 @@
+/* SELL PAGE */
+
+.sell-page {
+  min-height: 100vh;
+
+  padding: 40px 55px 80px;
+
+  background: #fffbf5;
+}
+
+.sell-container {
+  width: 100%;
+  max-width: 1250px;
+
+  margin: 0 auto;
+}
+
+/* BACK */
+
+.sell-back {
+  margin-bottom: 22px;
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  border: none;
+
+  background: transparent;
+  color: #5b21b6;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+/* HEADING */
+
+.sell-heading {
+  margin-bottom: 28px;
+}
+
+.sell-heading span {
+  color: #f97316;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sell-heading h1 {
+  margin: 6px 0;
+
+  color: #18181b;
+
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.sell-heading p {
+  margin: 0;
+
+  color: #71717a;
+
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* LAYOUT */
+
+.sell-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 24px;
+
+  align-items: start;
+}
+
+.sell-form-main {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* CARD */
+
+.sell-card {
+  padding: 22px;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 18px;
+
+  background: #ffffff;
+}
+
+.sell-card-title {
+  margin-bottom: 20px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: #5b21b6;
+}
+
+.sell-card-title h3 {
+  margin: 0;
+
+  color: #18181b;
+
+  font-size: 15px;
+}
+
+/* IMAGE UPLOAD */
+
+.image-upload {
+  width: 100%;
+  height: 280px;
+
+  display: block;
+
+  overflow: hidden;
+
+  border: 2px dashed #dcd5e4;
+  border-radius: 14px;
+
+  background: #faf8fc;
+
+  cursor: pointer;
+}
+
+.image-upload input {
+  display: none;
+}
+
+.image-upload img {
+  width: 100%;
+  height: 100%;
+
+  display: block;
+
+  object-fit: cover;
+}
+
+.image-upload-placeholder {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 20px;
+
+  color: #5b21b6;
+
+  text-align: center;
+}
+
+.image-upload-placeholder strong {
+  font-size: 13px;
+}
+
+.image-upload-placeholder span {
+  color: #9a939f;
+
+  font-size: 10px;
+}
+
+/* FORM */
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.form-group {
+  min-width: 0;
+
+  margin-bottom: 17px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  color: #18181b;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+
+  border: 1px solid #e5e0e9;
+  border-radius: 10px;
+  outline: none;
+
+  background: #ffffff;
+  color: #18181b;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input,
+.form-group select {
+  height: 43px;
+
+  padding: 0 12px;
+}
+
+.form-group textarea {
+  min-height: 130px;
+
+  padding: 12px;
+
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #5b21b6;
+
+  box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.06);
+}
+
+/* PRICE */
+
+.price-input {
+  position: relative;
+}
+
+.price-input input {
+  padding-left: 35px;
+}
+
+.price-input span {
+  position: absolute;
+
+  top: 50%;
+  left: 12px;
+
+  transform: translateY(-50%);
+
+  color: #5b21b6;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* SIDE */
+
+.sell-form-side {
+  position: sticky;
+  top: 25px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.sell-help-card {
+  padding: 16px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  border-radius: 14px;
+
+  background: #f5f0ff;
+  color: #5b21b6;
+}
+
+.sell-help-card strong {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #18181b;
+
+  font-size: 11px;
+}
+
+.sell-help-card p {
+  margin: 0;
+
+  color: #71717a;
+
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+/* PUBLISH */
+
+.publish-btn {
+  width: 100%;
+  height: 48px;
+
+  border: none;
+  border-radius: 11px;
+
+  background: #5b21b6;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.publish-btn:hover {
+  background: #4c1d95;
+
+  transform: translateY(-1px);
+
+  box-shadow: 0 8px 20px rgba(91, 33, 182, 0.14);
+}
+
+/* MESSAGE */
+
+.sell-message {
+  padding: 11px 13px;
+
+  border-radius: 10px;
+
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.sell-message.success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.sell-message.error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* TABLET */
+
+@media (max-width: 900px) {
+  .sell-page {
+    padding: 30px 20px 60px;
+  }
+
+  .sell-form-grid {
+    grid-template-columns: 1fr;
+
+    gap: 20px;
+  }
+
+  .sell-form-side {
+    position: static;
+
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .publish-btn {
+    height: 100%;
+    min-height: 48px;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+  .sell-page {
+    padding: 22px 14px 50px;
+  }
+
+  .sell-back {
+    margin-bottom: 18px;
+
+    font-size: 12px;
+  }
+
+  .sell-heading {
+    margin-bottom: 22px;
+  }
+
+  .sell-heading span {
+    font-size: 11px;
+  }
+
+  .sell-heading h1 {
+    font-size: 27px;
+  }
+
+  .sell-heading p {
+    font-size: 11px;
+  }
+
+  .sell-card {
+    padding: 16px;
+
+    border-radius: 15px;
+  }
+
+  .sell-card-title {
+    margin-bottom: 16px;
+  }
+
+  .sell-card-title h3 {
+    font-size: 14px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+
+    gap: 0;
+  }
+
+  .image-upload {
+    height: 220px;
+
+    border-radius: 12px;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  .form-group input,
+  .form-group select {
+    height: 41px;
+
+    font-size: 11px;
+  }
+
+  .form-group textarea {
+    min-height: 115px;
+
+    font-size: 11px;
+  }
+
+  .sell-form-side {
+    display: flex;
+  }
+
+  .sell-help-card {
+    padding: 14px;
+  }
+
+  .publish-btn {
+    height: 46px;
+
+    font-size: 12px;
+  }
+
+  .sell-message {
+    font-size: 10px;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 380px) {
+  .sell-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .sell-heading h1 {
+    font-size: 24px;
+  }
+
+  .sell-card {
+    padding: 14px;
+  }
+
+  .image-upload {
+    height: 190px;
+  }
+
+  .image-upload-placeholder strong {
+    font-size: 12px;
+  }
+
+  .image-upload-placeholder span {
+    font-size: 9px;
+  }
+}

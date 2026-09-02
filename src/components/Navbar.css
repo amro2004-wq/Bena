@@ -1,0 +1,918 @@
+/* NAVBAR */
+
+.navbar {
+  width: 100%;
+  height: 96px;
+
+  position: relative;
+  z-index: 100;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #f1eef5;
+
+  direction: rtl;
+}
+
+.navbar-container {
+  width: calc(100% - 84px);
+  max-width: 1680px;
+  height: 100%;
+
+  margin: 0 auto;
+
+  display: grid;
+  grid-template-columns: 250px 1fr 340px;
+  align-items: center;
+}
+
+/* LOGO */
+
+.navbar-brand {
+  height: 100%;
+
+  justify-self: start;
+
+  display: flex;
+  align-items: center;
+
+  text-decoration: none;
+}
+
+.navbar-logo {
+  width: 190px;
+  height: 84px;
+
+  display: block;
+
+  object-fit: contain;
+}
+
+/* LINKS */
+
+.nav-links {
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+}
+
+.nav-links a,
+.nav-links button {
+  position: relative;
+
+  height: 40px;
+
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+  color: #18181b;
+
+  text-decoration: none;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition: color 0.2s ease;
+}
+
+.nav-links a::after,
+.nav-links button::after {
+  content: "";
+
+  position: absolute;
+
+  right: 50%;
+  bottom: 2px;
+
+  width: 0;
+  height: 2px;
+
+  background: #5b21b6;
+
+  border-radius: 20px;
+
+  transform: translateX(50%);
+
+  transition: width 0.25s ease;
+}
+
+.nav-links a:hover,
+.nav-links button:hover {
+  color: #5b21b6;
+}
+
+.nav-links a:hover::after,
+.nav-links button:hover::after {
+  width: 100%;
+}
+
+/* ACTIONS */
+
+.nav-actions {
+  justify-self: end;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  direction: ltr;
+}
+
+/* ICON */
+
+.nav-icon {
+  position: relative;
+
+  width: 42px;
+  height: 42px;
+
+  padding: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+  color: #18181b;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.nav-icon:hover {
+  background: #f5f0ff;
+  color: #5b21b6;
+
+  transform: translateY(-1px);
+}
+
+/* NOTIFICATION COUNT */
+
+.notification-count {
+  position: absolute;
+
+  top: 0;
+  right: -1px;
+
+  width: 18px;
+  height: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #f97316;
+  color: #ffffff;
+
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* SELL BUTTON */
+
+.sell-button {
+  min-width: 130px;
+  height: 50px;
+
+  margin-right: 8px;
+  padding: 0 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  direction: rtl;
+
+  border: none;
+  border-radius: 12px;
+
+  background: #f97316;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  box-shadow: 0 8px 22px rgba(249, 115, 22, 0.16);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.sell-button:hover {
+  background: #ea580c;
+
+  transform: translateY(-2px);
+
+  box-shadow: 0 10px 26px rgba(249, 115, 22, 0.22);
+}
+
+/* NOTIFICATION WRAPPER */
+
+.notification-wrapper {
+  position: relative;
+}
+
+/* NOTIFICATION DROPDOWN */
+
+.notification-dropdown {
+  position: absolute;
+
+  top: calc(100% + 14px);
+  left: 0;
+
+  width: 340px;
+
+  overflow: hidden;
+
+  background: #ffffff;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 14px;
+
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+
+  direction: rtl;
+  text-align: right;
+
+  z-index: 9999;
+}
+
+/* NOTIFICATION HEADER */
+
+.notification-dropdown__header {
+  padding: 14px 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  border-bottom: 1px solid #eeeeee;
+}
+
+.notification-dropdown__header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-dropdown__header strong {
+  color: #18181b;
+
+  font-size: 15px;
+}
+
+.notifications-number {
+  padding: 4px 8px;
+
+  background: #f5f0ff;
+  color: #5b21b6;
+
+  border-radius: 6px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mark-all-read,
+.clear-notifications {
+  padding: 4px;
+
+  border: none;
+
+  background: transparent;
+
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.mark-all-read {
+  color: #5b21b6;
+}
+
+.clear-notifications {
+  color: #ef4444;
+}
+
+.mark-all-read:hover,
+.clear-notifications:hover {
+  text-decoration: underline;
+}
+
+/* NOTIFICATION ITEM */
+
+.notification-item {
+  width: 100%;
+
+  padding: 14px 16px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  border: none;
+  border-bottom: 1px solid #f1f1f1;
+
+  background: #ffffff;
+
+  font-family: inherit;
+
+  text-align: right;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: #fafafa;
+}
+
+.notification-item.unread {
+  background: #faf7ff;
+}
+
+.notification-dot {
+  width: 7px;
+  height: 7px;
+
+  margin-top: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #f97316;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-item strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #18181b;
+
+  font-size: 13px;
+}
+
+.notification-item p {
+  margin: 0 0 5px;
+
+  color: #71717a;
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.notification-item span {
+  color: #a1a1aa;
+
+  font-size: 10px;
+}
+
+.delete-notification {
+  width: 22px;
+  height: 22px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  color: #a1a1aa;
+
+  font-size: 18px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.delete-notification:hover {
+  background: #f4f4f5;
+  color: #ef4444;
+}
+
+/* EMPTY NOTIFICATIONS */
+
+.notifications-empty {
+  padding: 30px 20px;
+
+  color: #a1a1aa;
+
+  text-align: center;
+}
+
+.notifications-empty svg {
+  margin-bottom: 8px;
+}
+
+.notifications-empty strong {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #18181b;
+
+  font-size: 13px;
+}
+
+.notifications-empty p {
+  margin: 0;
+
+  color: #71717a;
+
+  font-size: 11px;
+}
+
+/* MESSAGE COUNT */
+
+.message-icon {
+  position: relative;
+}
+
+.message-count {
+  position: absolute;
+
+  top: -5px;
+  right: -5px;
+
+  min-width: 16px;
+  height: 16px;
+
+  padding: 0 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #f97316;
+  color: #ffffff;
+
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ACCOUNT */
+
+.account-wrapper {
+  position: relative;
+}
+
+.account-dropdown {
+  position: absolute;
+
+  top: calc(100% + 14px);
+  left: 0;
+
+  width: 190px;
+
+  padding: 7px;
+
+  background: #ffffff;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 12px;
+
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+
+  direction: rtl;
+
+  z-index: 9999;
+}
+
+.account-dropdown button {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  display: flex;
+  align-items: center;
+
+  border: none;
+  border-radius: 8px;
+
+  background: transparent;
+  color: #18181b;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  text-align: right;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.account-dropdown button:hover {
+  background: #f5f0ff;
+  color: #5b21b6;
+}
+
+.account-dropdown .logout-button {
+  margin-top: 5px;
+  padding-top: 10px;
+
+  border-top: 1px solid #eeeeee;
+  border-radius: 0 0 8px 8px;
+
+  color: #ef4444;
+}
+
+.account-dropdown .logout-button:hover {
+  background: #fff5f5;
+  color: #dc2626;
+}
+
+/* LARGE LAPTOP */
+
+@media (max-width: 1400px) {
+  .navbar-container {
+    width: calc(100% - 60px);
+
+    grid-template-columns: 220px 1fr 300px;
+  }
+
+  .navbar-logo {
+    width: 165px;
+    height: 76px;
+  }
+
+  .nav-links {
+    gap: 30px;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 13px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sell-button {
+    min-width: 116px;
+    height: 46px;
+
+    padding: 0 14px;
+
+    font-size: 13px;
+  }
+}
+
+/* LAPTOP */
+
+@media (max-width: 1200px) {
+  .navbar {
+    height: 86px;
+  }
+
+  .navbar-container {
+    width: calc(100% - 40px);
+
+    grid-template-columns: 185px 1fr 255px;
+  }
+
+  .navbar-logo {
+    width: 145px;
+    height: 68px;
+  }
+
+  .nav-links {
+    gap: 20px;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 12px;
+  }
+
+  .nav-actions {
+    gap: 5px;
+  }
+
+  .nav-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sell-button {
+    min-width: 103px;
+    height: 43px;
+
+    margin-right: 3px;
+    padding: 0 11px;
+
+    font-size: 12px;
+  }
+}
+
+/* TABLET */
+
+@media (max-width: 992px) {
+  .navbar {
+    height: 78px;
+  }
+
+  .navbar-container {
+    width: calc(100% - 32px);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-links {
+    display: none;
+  }
+
+  .navbar-brand {
+    order: 1;
+  }
+
+  .nav-actions {
+    order: 2;
+
+    gap: 8px;
+  }
+
+  .navbar-logo {
+    width: 135px;
+    height: 64px;
+  }
+
+  .sell-button {
+    margin: 0;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 700px) {
+  .navbar {
+    height: 70px;
+  }
+
+  .navbar-container {
+    width: calc(100% - 24px);
+  }
+
+  .navbar-logo {
+    width: 112px;
+    height: 56px;
+  }
+
+  .nav-actions {
+    gap: 3px;
+  }
+
+  .nav-actions .nav-icon:nth-of-type(1),
+  .nav-actions .nav-icon:nth-of-type(2) {
+    display: none;
+  }
+
+  .nav-icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .sell-button {
+    min-width: 92px;
+    height: 39px;
+
+    padding: 0 10px;
+
+    font-size: 11px;
+  }
+
+  .notification-dropdown {
+    width: min(310px, calc(100vw - 24px));
+
+    left: -70px;
+  }
+
+  .account-dropdown {
+    width: 180px;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 480px) {
+  .navbar {
+    height: 64px;
+  }
+
+  .navbar-container {
+    width: calc(100% - 16px);
+  }
+
+  .navbar-logo {
+    width: 92px;
+    height: 48px;
+  }
+
+  .nav-actions {
+    gap: 2px;
+  }
+
+  .nav-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .nav-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .notification-count {
+    width: 16px;
+    height: 16px;
+
+    font-size: 8px;
+  }
+
+  .message-count {
+    min-width: 15px;
+    height: 15px;
+
+    padding: 0 3px;
+
+    font-size: 8px;
+  }
+
+  .sell-button {
+    min-width: 78px;
+    height: 36px;
+
+    padding: 0 7px;
+
+    gap: 4px;
+
+    border-radius: 9px;
+
+    font-size: 10px;
+  }
+
+  .sell-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .notification-dropdown {
+    width: calc(100vw - 20px);
+
+    left: -76px;
+
+    border-radius: 12px;
+  }
+
+  .notification-dropdown__header {
+    padding: 12px;
+  }
+
+  .notification-dropdown__header strong {
+    font-size: 13px;
+  }
+
+  .notification-header-actions {
+    gap: 3px;
+  }
+
+  .notifications-number,
+  .mark-all-read,
+  .clear-notifications {
+    font-size: 9px;
+  }
+
+  .notification-item {
+    padding: 12px;
+  }
+
+  .notification-item strong {
+    font-size: 12px;
+  }
+
+  .notification-item p {
+    font-size: 10px;
+  }
+
+  .account-dropdown {
+    width: 170px;
+
+    left: 0;
+  }
+}
+
+/* VERY SMALL MOBILE */
+
+@media (max-width: 360px) {
+  .navbar-container {
+    width: calc(100% - 12px);
+  }
+
+  .navbar-logo {
+    width: 82px;
+    height: 44px;
+  }
+
+  .nav-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sell-button {
+    min-width: 70px;
+    height: 34px;
+
+    padding: 0 6px;
+
+    font-size: 9px;
+  }
+
+  .sell-button svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .notification-dropdown {
+    width: calc(100vw - 16px);
+
+    left: -70px;
+  }
+}

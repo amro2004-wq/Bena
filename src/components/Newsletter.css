@@ -1,0 +1,461 @@
+/* NEWSLETTER */
+
+.newsletter {
+  width: calc(100% - 110px);
+  max-width: 1760px;
+  height: 104px;
+
+  margin: 18px auto 0;
+  padding: 0 28px;
+
+  display: grid;
+  grid-template-columns: 320px 440px 360px;
+  justify-content: space-between;
+  align-items: center;
+
+  position: relative;
+
+  overflow: hidden;
+
+  border: 1px solid #ebe3f5;
+  border-radius: 18px;
+
+  background: linear-gradient(100deg, #fbf9ff 0%, #f5efff 55%, #f4edff 100%);
+}
+
+/* TEXT */
+
+.newsletter-text {
+  text-align: right;
+}
+
+.newsletter-text h3 {
+  margin: 0 0 5px;
+
+  color: #4b188e;
+
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.newsletter-text p {
+  margin: 0;
+
+  color: #8c8492;
+
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* SUBSCRIBE */
+
+.subscribe-area {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  direction: ltr;
+}
+
+.email-field {
+  width: 320px;
+  height: 44px;
+
+  padding: 0 14px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  direction: rtl;
+
+  border: 1px solid #e5dde9;
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  box-shadow: 0 4px 12px rgba(67, 35, 105, 0.04);
+}
+
+.email-field svg {
+  flex-shrink: 0;
+
+  color: #aaa1b0;
+}
+
+.email-field input {
+  width: 100%;
+  min-width: 0;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #18181b;
+
+  font-family: inherit;
+  font-size: 10px;
+
+  text-align: right;
+}
+
+.email-field input::placeholder {
+  color: #aca4b2;
+}
+
+.subscribe-btn {
+  width: 86px;
+  height: 44px;
+
+  flex-shrink: 0;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #5b21b6;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.subscribe-btn:hover {
+  background: #4c1d95;
+}
+
+/* MESSAGE */
+
+.subscribe-message {
+  position: absolute;
+
+  top: calc(100% + 5px);
+  right: 0;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.subscribe-message.success {
+  color: #16a34a;
+}
+
+.subscribe-message.error {
+  color: #dc2626;
+}
+
+/* APP */
+
+.app-section {
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+
+  direction: ltr;
+}
+
+/* PHONE */
+
+.app-phone {
+  width: 62px;
+  height: 99px;
+
+  align-self: flex-end;
+
+  position: relative;
+
+  flex-shrink: 0;
+
+  padding: 4px;
+
+  border: 4px solid #222222;
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+
+  background: #ffffff;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+.phone-notch {
+  width: 20px;
+  height: 4px;
+
+  position: absolute;
+  top: 6px;
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 5;
+
+  border-radius: 20px;
+
+  background: #222222;
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  border-radius: 11px 11px 0 0;
+
+  background: linear-gradient(180deg, #ffffff 0%, #f8f2ff 100%);
+}
+
+.phone-screen img {
+  width: 76%;
+
+  display: block;
+
+  object-fit: contain;
+}
+
+/* APP DETAILS */
+
+.app-details {
+  min-width: 220px;
+
+  direction: rtl;
+
+  text-align: right;
+
+  transform: translateY(-2px);
+}
+
+.app-details h3 {
+  margin: 0 0 3px;
+
+  color: #5b21b6;
+
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.app-details p {
+  margin: 0;
+
+  color: #8b8491;
+
+  font-size: 9px;
+}
+
+/* STORE BADGES */
+
+.store-buttons {
+  margin-top: 5px;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  direction: ltr;
+}
+
+.store-badge {
+  display: block;
+
+  object-fit: contain;
+
+  cursor: pointer;
+}
+
+.google-badge {
+  width: 113px;
+  height: 34px;
+}
+
+.apple-badge {
+  width: 106px;
+  height: 34px;
+}
+
+/* LAPTOP */
+
+@media (max-width: 1350px) {
+  .newsletter {
+    width: calc(100% - 60px);
+
+    padding: 0 22px;
+
+    grid-template-columns: 290px 400px 330px;
+  }
+
+  .email-field {
+    width: 285px;
+  }
+
+  .google-badge {
+    width: 106px;
+  }
+
+  .apple-badge {
+    width: 100px;
+  }
+}
+
+/* TABLET */
+
+@media (max-width: 1050px) {
+  .newsletter {
+    width: calc(100% - 40px);
+    height: auto;
+
+    padding: 22px;
+
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .newsletter-text {
+    text-align: center;
+  }
+
+  .subscribe-area {
+    width: 100%;
+
+    justify-content: center;
+  }
+
+  .app-section {
+    height: 110px;
+
+    justify-content: center;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+  .newsletter {
+    width: calc(100% - 24px);
+
+    margin-top: 16px;
+    padding: 18px 12px;
+
+    gap: 18px;
+
+    border-radius: 16px;
+  }
+
+  .newsletter-text h3 {
+    font-size: 15px;
+  }
+
+  .newsletter-text p {
+    font-size: 9px;
+  }
+
+  .subscribe-area {
+    width: 100%;
+
+    gap: 6px;
+  }
+
+  .email-field {
+    width: 100%;
+    height: 40px;
+
+    padding: 0 10px;
+  }
+
+  .subscribe-btn {
+    width: 70px;
+    height: 40px;
+
+    font-size: 11px;
+  }
+
+  .subscribe-message {
+    font-size: 9px;
+  }
+
+  .app-section {
+    height: 100px;
+
+    gap: 10px;
+  }
+
+  .app-phone {
+    width: 56px;
+    height: 90px;
+  }
+
+  .app-details {
+    min-width: 0;
+  }
+
+  .app-details h3 {
+    font-size: 14px;
+  }
+
+  .google-badge {
+    width: 95px;
+    height: 29px;
+  }
+
+  .apple-badge {
+    width: 90px;
+    height: 29px;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 400px) {
+  .newsletter {
+    padding: 16px 10px;
+  }
+
+  .email-field {
+    padding: 0 8px;
+  }
+
+  .email-field input {
+    font-size: 9px;
+  }
+
+  .subscribe-btn {
+    width: 62px;
+
+    font-size: 10px;
+  }
+
+  .app-phone {
+    width: 52px;
+    height: 84px;
+  }
+
+  .app-details h3 {
+    font-size: 13px;
+  }
+
+  .google-badge {
+    width: 86px;
+    height: 27px;
+  }
+
+  .apple-badge {
+    width: 82px;
+    height: 27px;
+  }
+}

@@ -1,0 +1,458 @@
+/* ALL MESSAGES */
+
+.all-messages-page {
+  min-height: 100vh;
+
+  padding: 45px 20px 80px;
+
+  background: #fffbf5;
+}
+
+.all-messages-container {
+  width: 100%;
+  max-width: 1000px;
+
+  margin: 0 auto;
+}
+
+/* BACK */
+
+.all-messages-back {
+  margin-bottom: 28px;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  border: none;
+
+  background: transparent;
+  color: #71717a;
+
+  font-family: inherit;
+  font-size: 14px;
+
+  cursor: pointer;
+
+  transition: color 0.2s ease;
+}
+
+.all-messages-back:hover {
+  color: #5b21b6;
+}
+
+/* HEADING */
+
+.all-messages-heading {
+  margin-bottom: 30px;
+}
+
+.all-messages-heading span {
+  color: #f97316;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.all-messages-heading h1 {
+  margin: 5px 0;
+
+  color: #18181b;
+
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.all-messages-heading p {
+  margin: 0;
+
+  color: #71717a;
+
+  font-size: 14px;
+}
+
+/* LIST */
+
+.conversations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* CARD */
+
+.conversation-card {
+  width: 100%;
+
+  padding: 14px;
+
+  display: flex;
+  align-items: center;
+  gap: 15px;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 15px;
+
+  background: #ffffff;
+
+  font-family: inherit;
+  text-align: right;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.conversation-card:hover {
+  border-color: #d8c9f3;
+
+  transform: translateY(-2px);
+
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+}
+
+/* IMAGE */
+
+.conversation-image {
+  width: 78px;
+  height: 78px;
+
+  flex-shrink: 0;
+
+  border-radius: 12px;
+
+  object-fit: cover;
+}
+
+/* INFO */
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.conversation-top-left {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.conversation-top h3 {
+  margin: 0;
+
+  overflow: hidden;
+
+  color: #18181b;
+
+  font-size: 16px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-top strong {
+  flex-shrink: 0;
+
+  color: #5b21b6;
+
+  font-size: 15px;
+
+  white-space: nowrap;
+}
+
+/* UNREAD */
+
+.conversation-unread-count {
+  min-width: 20px;
+  height: 20px;
+
+  padding: 0 6px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 999px;
+
+  background: #5b21b6;
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* LOCATION */
+
+.conversation-location {
+  margin-top: 6px;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: #71717a;
+
+  font-size: 12px;
+}
+
+/* LAST MESSAGE */
+
+.conversation-last-message {
+  margin: 8px 0 0;
+
+  overflow: hidden;
+
+  color: #71717a;
+
+  font-size: 13px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ICON */
+
+.conversation-icon {
+  flex-shrink: 0;
+
+  color: #5b21b6;
+}
+
+/* EMPTY */
+
+.messages-empty {
+  min-height: 370px;
+
+  padding: 30px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 18px;
+
+  background: #ffffff;
+  color: #71717a;
+
+  text-align: center;
+}
+
+.messages-empty svg {
+  color: #5b21b6;
+}
+
+.messages-empty h2 {
+  margin: 16px 0 6px;
+
+  color: #18181b;
+
+  font-size: 22px;
+}
+
+.messages-empty p {
+  margin: 0 0 20px;
+
+  font-size: 13px;
+}
+
+.messages-empty button {
+  padding: 11px 22px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #5b21b6;
+  color: #ffffff;
+
+  font-family: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.messages-empty button:hover {
+  background: #4c1d95;
+
+  transform: translateY(-1px);
+}
+
+/* TABLET */
+
+@media (max-width: 800px) {
+  .all-messages-page {
+    padding: 35px 18px 65px;
+  }
+
+  .conversation-card {
+    gap: 12px;
+  }
+
+  .conversation-image {
+    width: 70px;
+    height: 70px;
+  }
+}
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+  .all-messages-page {
+    padding: 25px 14px 50px;
+  }
+
+  .all-messages-back {
+    margin-bottom: 22px;
+
+    font-size: 12px;
+  }
+
+  .all-messages-heading {
+    margin-bottom: 24px;
+  }
+
+  .all-messages-heading span {
+    font-size: 11px;
+  }
+
+  .all-messages-heading h1 {
+    font-size: 27px;
+  }
+
+  .all-messages-heading p {
+    font-size: 12px;
+  }
+
+  .conversations-list {
+    gap: 10px;
+  }
+
+  .conversation-card {
+    padding: 12px;
+
+    align-items: flex-start;
+    gap: 11px;
+
+    border-radius: 13px;
+  }
+
+  .conversation-image {
+    width: 62px;
+    height: 62px;
+
+    border-radius: 10px;
+  }
+
+  .conversation-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .conversation-top-left {
+    width: 100%;
+  }
+
+  .conversation-top h3 {
+    font-size: 14px;
+  }
+
+  .conversation-top strong {
+    font-size: 13px;
+  }
+
+  .conversation-location {
+    margin-top: 5px;
+
+    font-size: 10px;
+  }
+
+  .conversation-last-message {
+    margin-top: 6px;
+
+    font-size: 11px;
+  }
+
+  .conversation-icon {
+    display: none;
+  }
+
+  .conversation-unread-count {
+    min-width: 18px;
+    height: 18px;
+
+    padding: 0 5px;
+
+    font-size: 9px;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 400px) {
+  .all-messages-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .all-messages-heading h1 {
+    font-size: 24px;
+  }
+
+  .conversation-card {
+    padding: 10px;
+
+    gap: 9px;
+  }
+
+  .conversation-image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .conversation-top h3 {
+    font-size: 13px;
+  }
+
+  .conversation-top strong {
+    font-size: 12px;
+  }
+
+  .conversation-last-message {
+    font-size: 10px;
+  }
+
+  .messages-empty {
+    min-height: 300px;
+
+    padding: 20px 14px;
+  }
+
+  .messages-empty h2 {
+    font-size: 18px;
+  }
+
+  .messages-empty p {
+    font-size: 11px;
+  }
+}
