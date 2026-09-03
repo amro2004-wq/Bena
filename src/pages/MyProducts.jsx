@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, MapPin, Trash2, Eye, Pencil } from "lucide-react";
+import {
+  ArrowRight,
+  MapPin,
+  Trash2,
+  Eye,
+  Pencil,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+
+import Toast from "../components/Toast";
+
 import "./MyProducts.css";
 
 function MyProducts() {
@@ -9,12 +20,45 @@ function MyProducts() {
   const [products, setProducts] = useState(() => {
     return JSON.parse(localStorage.getItem("benaProducts")) || [];
   });
-  const deleteProduct = (productId) => {
-    const confirmDelete = window.confirm("هل أنت متأكد من حذف هذا المنتج؟");
 
-    if (!confirmDelete) return;
+  const [productToDelete, setProductToDelete] = useState(null);
 
-    // 1. حذف المنتج
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
+  const openDeleteModal = (product) => {
+    setProductToDelete(product);
+  };
+
+  const closeDeleteModal = () => {
+    setProductToDelete(null);
+  };
+
+  const deleteProduct = () => {
+    if (!productToDelete) return;
+
+    const productId = productToDelete.id;
+
+    /* DELETE PRODUCT */
+
     const updatedProducts = products.filter(
       (product) => Number(product.id) !== Number(productId),
     );
@@ -23,7 +67,8 @@ function MyProducts() {
 
     localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
 
-    // 2. حذفه من المفضلة
+    /* DELETE FAVORITE */
+
     const favorites = JSON.parse(localStorage.getItem("benaFavorites")) || [];
 
     const updatedFavorites = favorites.filter(
@@ -32,14 +77,16 @@ function MyProducts() {
 
     localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
 
-    // 3. حذف محادثة المنتج
+    /* DELETE CHAT */
+
     const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
 
     delete chats[productId];
 
     localStorage.setItem("benaMessages", JSON.stringify(chats));
 
-    // 4. حذف إشعارات المنتج
+    /* DELETE NOTIFICATIONS */
+
     const notifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
@@ -53,10 +100,16 @@ function MyProducts() {
       "benaNotifications",
       JSON.stringify(updatedNotifications),
     );
+
+    closeDeleteModal();
+
+    showToast("تم حذف المنتج بنجاح ✓", "success");
   };
 
   return (
     <main className="my-products-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="my-products-container">
         <button
           type="button"
@@ -69,7 +122,9 @@ function MyProducts() {
 
         <div className="my-products-heading">
           <span>إدارة منتجاتك</span>
+
           <h1>منتجاتي</h1>
+
           <p>كل المنتجات اللي نشرتها على بينا موجودة هون.</p>
         </div>
 
@@ -94,6 +149,7 @@ function MyProducts() {
 
                   <div className="my-product-location">
                     <MapPin size={14} />
+
                     {product.location}
                   </div>
 
@@ -106,6 +162,7 @@ function MyProducts() {
                       <Eye size={16} />
                       عرض المنتج
                     </button>
+
                     <button
                       type="button"
                       className="edit-product-button"
@@ -118,7 +175,7 @@ function MyProducts() {
                     <button
                       type="button"
                       className="delete-product-button"
-                      onClick={() => deleteProduct(product.id)}
+                      onClick={() => openDeleteModal(product)}
                     >
                       <Trash2 size={16} />
                       حذف
@@ -140,6 +197,52 @@ function MyProducts() {
           </div>
         )}
       </div>
+
+      {productToDelete && (
+        <div className="delete-modal-overlay" onClick={closeDeleteModal}>
+          <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="delete-modal-close"
+              onClick={closeDeleteModal}
+            >
+              <X size={18} />
+            </button>
+
+            <div className="delete-modal-icon">
+              <TriangleAlert size={30} />
+            </div>
+
+            <h2>حذف المنتج؟</h2>
+
+            <p>
+              هل أنت متأكد من حذف
+              <strong> {productToDelete.name}؟</strong>
+              <br />
+              لن تتمكن من استرجاعه بعد الحذف.
+            </p>
+
+            <div className="delete-modal-actions">
+              <button
+                type="button"
+                className="delete-modal-cancel"
+                onClick={closeDeleteModal}
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                className="delete-modal-confirm"
+                onClick={deleteProduct}
+              >
+                <Trash2 size={16} />
+                حذف المنتج
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

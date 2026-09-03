@@ -1,12 +1,14 @@
 import "./Messages.css";
 import { defaultProducts } from "../data/products";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Send, UserRound, ShieldCheck, MapPin } from "lucide-react";
 
 function Messages() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const savedNotifications =
@@ -51,14 +53,22 @@ function Messages() {
     );
   });
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
   const sendMessage = (e) => {
     e.preventDefault();
 
-    if (!message.trim()) return;
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) return;
 
     const newMessage = {
       id: Date.now(),
-      text: message.trim(),
+      text: trimmedMessage,
       type: "buyer",
     };
 
@@ -130,6 +140,7 @@ function Messages() {
 
                 <small>
                   <MapPin size={12} />
+
                   {product.location}
                 </small>
               </div>
@@ -151,6 +162,8 @@ function Messages() {
                 {item.text}
               </div>
             ))}
+
+            <div ref={messagesEndRef} />
           </div>
 
           {/* SEND */}
@@ -163,7 +176,7 @@ function Messages() {
               onChange={(e) => setMessage(e.target.value)}
             />
 
-            <button type="submit">
+            <button type="submit" disabled={!message.trim()}>
               <Send size={18} />
               إرسال
             </button>

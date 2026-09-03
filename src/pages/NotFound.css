@@ -1,0 +1,168 @@
+/* NOT FOUND */
+
+.not-found-page {
+  min-height: 100vh;
+
+  padding: 40px 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #fffbf5;
+}
+
+.not-found-card {
+  width: 100%;
+  max-width: 560px;
+
+  padding: 50px 35px;
+
+  border: 1px solid #e9e5ef;
+  border-radius: 22px;
+
+  background: #ffffff;
+
+  text-align: center;
+
+  box-shadow: 0 12px 35px rgba(91, 33, 182, 0.06);
+}
+
+.not-found-icon {
+  width: 82px;
+  height: 82px;
+
+  margin: 0 auto 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #f5f0ff;
+  color: #5b21b6;
+}
+
+.not-found-code {
+  display: inline-block;
+
+  margin-bottom: 8px;
+
+  color: #f97316;
+
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.not-found-card h1 {
+  margin: 0 0 12px;
+
+  color: #18181b;
+
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.not-found-card p {
+  max-width: 420px;
+
+  margin: 0 auto 28px;
+
+  color: #71717a;
+
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.not-found-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.not-found-actions button {
+  min-height: 45px;
+
+  padding: 0 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.not-found-home {
+  border: none;
+
+  background: #5b21b6;
+  color: #ffffff;
+}
+
+.not-found-home:hover {
+  background: #4c1d95;
+
+  transform: translateY(-1px);
+}
+
+.not-found-back {
+  border: 1px solid #ddd6fe;
+
+  background: #f5f0ff;
+  color: #5b21b6;
+}
+
+.not-found-back:hover {
+  background: #ede9fe;
+
+  transform: translateY(-1px);
+}
+
+/* MOBILE */
+
+@media (max-width: 520px) {
+  .not-found-page {
+    padding: 20px 12px;
+  }
+
+  .not-found-card {
+    padding: 38px 18px;
+
+    border-radius: 18px;
+  }
+
+  .not-found-icon {
+    width: 70px;
+    height: 70px;
+  }
+
+  .not-found-card h1 {
+    font-size: 26px;
+  }
+
+  .not-found-card p {
+    font-size: 12px;
+  }
+
+  .not-found-actions {
+    flex-direction: column;
+  }
+
+  .not-found-actions button {
+    width: 100%;
+  }
+}

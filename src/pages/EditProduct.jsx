@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, Save } from "lucide-react";
 
+import Toast from "../components/Toast";
+
 import "./EditProduct.css";
 
 function EditProduct() {
@@ -22,13 +24,37 @@ function EditProduct() {
     image: product?.image || "",
   }));
 
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
 
     if (!file) return;
 
     if (file.size > 1500000) {
-      alert("حجم الصورة كبير، اختار صورة أقل من 1.5MB");
+      showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
+
+      e.target.value = "";
+
       return;
     }
 
@@ -63,7 +89,8 @@ function EditProduct() {
       !formData.condition ||
       !formData.location
     ) {
-      alert("يرجى تعبئة جميع الحقول المطلوبة");
+      showToast("يرجى تعبئة جميع الحقول المطلوبة", "error");
+
       return;
     }
 
@@ -87,7 +114,11 @@ function EditProduct() {
 
     localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
 
-    navigate("/my-products");
+    showToast("تم تحديث المنتج بنجاح ✓", "success");
+
+    setTimeout(() => {
+      navigate("/my-products");
+    }, 900);
   };
 
   if (!product) {
@@ -106,6 +137,8 @@ function EditProduct() {
 
   return (
     <main className="edit-product-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="edit-product-container">
         <button
           type="button"
@@ -183,10 +216,15 @@ function EditProduct() {
                 onChange={handleChange}
               >
                 <option value="">اختر الموقع</option>
+
                 <option value="غزة">غزة</option>
+
                 <option value="شمال غزة">شمال غزة</option>
+
                 <option value="دير البلح">دير البلح</option>
+
                 <option value="خان يونس">خان يونس</option>
+
                 <option value="رفح">رفح</option>
               </select>
             </div>
@@ -203,31 +241,55 @@ function EditProduct() {
                 onChange={handleChange}
               >
                 <option value="">اختر التصنيف</option>
+
                 <option value="إلكترونيات">إلكترونيات</option>
+
                 <option value="موبايلات">موبايلات</option>
+
                 <option value="كمبيوتر ولابتوب">كمبيوتر ولابتوب</option>
+
                 <option value="ألعاب وإكسسوارات">ألعاب وإكسسوارات</option>
+
                 <option value="أجهزة منزلية">أجهزة منزلية</option>
+
                 <option value="أثاث">أثاث</option>
+
                 <option value="ملابس">ملابس</option>
+
                 <option value="أحذية">أحذية</option>
+
                 <option value="حقائب وإكسسوارات">حقائب وإكسسوارات</option>
+
                 <option value="ساعات ومجوهرات">ساعات ومجوهرات</option>
+
                 <option value="عناية شخصية وتجميل">عناية شخصية وتجميل</option>
+
                 <option value="أطفال ورضع">أطفال ورضع</option>
+
                 <option value="ألعاب أطفال">ألعاب أطفال</option>
+
                 <option value="كتب وقرطاسية">كتب وقرطاسية</option>
+
                 <option value="رياضة ولياقة">رياضة ولياقة</option>
+
                 <option value="سيارات وقطع غيار">سيارات وقطع غيار</option>
+
                 <option value="دراجات">دراجات</option>
+
                 <option value="أدوات ومعدات">أدوات ومعدات</option>
+
                 <option value="مستلزمات منزلية">مستلزمات منزلية</option>
+
                 <option value="حديقة وزراعة">حديقة وزراعة</option>
+
                 <option value="حيوانات ومستلزماتها">حيوانات ومستلزماتها</option>
+
                 <option value="مأكولات ومنتجات منزلية">
                   مأكولات ومنتجات منزلية
                 </option>
+
                 <option value="هوايات ومقتنيات">هوايات ومقتنيات</option>
+
                 <option value="أخرى">أخرى</option>
               </select>
             </div>
@@ -242,8 +304,11 @@ function EditProduct() {
                 onChange={handleChange}
               >
                 <option value="">اختر الحالة</option>
+
                 <option value="جديد">جديد</option>
+
                 <option value="ممتاز">ممتاز</option>
+
                 <option value="مستخدم">مستخدم</option>
               </select>
             </div>

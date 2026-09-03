@@ -456,3 +456,18 @@
     font-size: 11px;
   }
 }
+/* UNREAD CONVERSATION */
+
+.conversation-card--unread {
+  border-color: #5b21b6;
+  background: #faf7ff;
+}
+
+.conversation-card--unread h3 {
+  color: #5b21b6;
+}
+
+.conversation-message-owner {
+  font-weight: 700;
+  color: #52525b;
+}

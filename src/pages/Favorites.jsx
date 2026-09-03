@@ -4,12 +4,35 @@ import { Heart, MapPin, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
+import Toast from "../components/Toast";
+
 function Favorites() {
   const navigate = useNavigate();
 
   const [favoriteIds, setFavoriteIds] = useState(() => {
     return JSON.parse(localStorage.getItem("benaFavorites")) || [];
   });
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
 
   const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
 
@@ -29,10 +52,14 @@ function Favorites() {
     setFavoriteIds(updatedFavorites);
 
     localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+
+    showToast("تمت إزالة المنتج من المفضلة", "info");
   };
 
   return (
     <main className="favorites-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="favorites-container">
         <button
           type="button"

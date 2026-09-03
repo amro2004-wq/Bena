@@ -2,12 +2,18 @@ import "./Products.css";
 import { defaultProducts } from "../data/products";
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+
+import Toast from "../components/Toast";
+
 import {
   Search,
   MapPin,
   Heart,
   SlidersHorizontal,
   ArrowRight,
+  Trash2,
+  TriangleAlert,
+  X,
 } from "lucide-react";
 
 const categories = [
@@ -43,6 +49,7 @@ function Products() {
   const [searchParams] = useSearchParams();
 
   const initialSearch = searchParams.get("search") || "";
+
   const initialCategory = searchParams.get("category") || "الكل";
 
   const [savedProducts, setSavedProducts] = useState(() => {
@@ -52,14 +59,49 @@ function Products() {
   const products = [...savedProducts, ...defaultProducts];
 
   const [search, setSearch] = useState(initialSearch);
+
   const [category, setCategory] = useState(initialCategory);
+
   const [condition, setCondition] = useState("الكل");
+
   const [location, setLocation] = useState("الكل");
+
   const [sort, setSort] = useState("latest");
 
   const [favorites, setFavorites] = useState(() => {
     return JSON.parse(localStorage.getItem("benaFavorites")) || [];
   });
+
+  const [productToDelete, setProductToDelete] = useState(null);
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
+  const openDeleteModal = (product) => {
+    setProductToDelete(product);
+  };
+
+  const closeDeleteModal = () => {
+    setProductToDelete(null);
+  };
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -71,7 +113,9 @@ function Products() {
 
       result = result.filter((product) => {
         const name = product.name?.toLowerCase() || "";
+
         const description = product.description?.toLowerCase() || "";
+
         const productCategory = product.category?.toLowerCase() || "";
 
         return (
@@ -135,10 +179,10 @@ function Products() {
     });
   };
 
-  const deleteProduct = (productId) => {
-    const confirmDelete = window.confirm("هل أنت متأكد من حذف هذا المنتج؟");
+  const deleteProduct = () => {
+    if (!productToDelete) return;
 
-    if (!confirmDelete) return;
+    const productId = productToDelete.id;
 
     /* DELETE PRODUCT */
 
@@ -183,10 +227,16 @@ function Products() {
       "benaNotifications",
       JSON.stringify(updatedNotifications),
     );
+
+    closeDeleteModal();
+
+    showToast("تم حذف المنتج بنجاح ✓", "success");
   };
 
   return (
     <main className="products-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="products-page__container">
         <button
           type="button"
@@ -194,6 +244,7 @@ function Products() {
           onClick={() => navigate("/")}
         >
           <ArrowRight size={18} />
+
           <span>العودة للرئيسية</span>
         </button>
 
@@ -422,7 +473,7 @@ function Products() {
                             onClick={(e) => {
                               e.stopPropagation();
 
-                              deleteProduct(product.id);
+                              openDeleteModal(product);
                             }}
                           >
                             حذف
@@ -445,6 +496,55 @@ function Products() {
           </section>
         </div>
       </div>
+
+      {/* DELETE MODAL */}
+
+      {productToDelete && (
+        <div className="delete-modal-overlay" onClick={closeDeleteModal}>
+          <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="delete-modal-close"
+              onClick={closeDeleteModal}
+              aria-label="إغلاق"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="delete-modal-icon">
+              <TriangleAlert size={30} />
+            </div>
+
+            <h2>حذف المنتج؟</h2>
+
+            <p>
+              هل أنت متأكد من حذف
+              <strong> {productToDelete.name}؟</strong>
+              <br />
+              لن تتمكن من استرجاعه بعد الحذف.
+            </p>
+
+            <div className="delete-modal-actions">
+              <button
+                type="button"
+                className="delete-modal-cancel"
+                onClick={closeDeleteModal}
+              >
+                إلغاء
+              </button>
+
+              <button
+                type="button"
+                className="delete-modal-confirm"
+                onClick={deleteProduct}
+              >
+                <Trash2 size={16} />
+                حذف المنتج
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

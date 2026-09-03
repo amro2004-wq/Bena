@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import MyProducts from "./pages/MyProducts";
 import EditProduct from "./pages/EditProduct";
 import InfoPage from "./pages/InfoPage";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -36,6 +37,8 @@ function App() {
       <Route path="/edit-product/:id" element={<EditProduct />} />
 
       <Route path="/info/:page" element={<InfoPage />} />
+
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

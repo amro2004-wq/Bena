@@ -2,6 +2,9 @@ import "./SellProduct.css";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import Toast from "../components/Toast";
+
 import {
   ArrowRight,
   Upload,
@@ -25,15 +28,33 @@ function SellProduct() {
   });
 
   const [imagePreview, setImagePreview] = useState("");
-  const [message, setMessage] = useState("");
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
-
-    setMessage("");
   };
 
   const handleImage = (e) => {
@@ -42,7 +63,10 @@ function SellProduct() {
     if (!file) return;
 
     if (file.size > 1500000) {
-      setMessage("حجم الصورة كبير، اختار صورة أقل من 1.5MB");
+      showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
+
+      e.target.value = "";
+
       return;
     }
 
@@ -50,7 +74,6 @@ function SellProduct() {
 
     reader.onloadend = () => {
       setImagePreview(reader.result);
-      setMessage("");
     };
 
     reader.readAsDataURL(file);
@@ -71,7 +94,8 @@ function SellProduct() {
       !description.trim() ||
       !imagePreview
     ) {
-      setMessage("يرجى تعبئة جميع الحقول وإضافة صورة للمنتج");
+      showToast("يرجى تعبئة جميع الحقول وإضافة صورة للمنتج", "error");
+
       return;
     }
 
@@ -100,6 +124,7 @@ function SellProduct() {
       "benaProducts",
       JSON.stringify([newProduct, ...savedProducts]),
     );
+
     const savedNotifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
@@ -118,7 +143,7 @@ function SellProduct() {
       JSON.stringify([newNotification, ...savedNotifications]),
     );
 
-    setMessage("تم نشر المنتج بنجاح ✓");
+    showToast("تم نشر المنتج بنجاح ✓", "success");
 
     setTimeout(() => {
       navigate("/products");
@@ -127,6 +152,8 @@ function SellProduct() {
 
   return (
     <main className="sell-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="sell-container">
         <button
           type="button"
@@ -205,34 +232,57 @@ function SellProduct() {
                       <option value="">اختر التصنيف</option>
 
                       <option value="إلكترونيات">إلكترونيات</option>
+
                       <option value="موبايلات">موبايلات</option>
+
                       <option value="كمبيوتر ولابتوب">كمبيوتر ولابتوب</option>
+
                       <option value="ألعاب وإكسسوارات">ألعاب وإكسسوارات</option>
+
                       <option value="أجهزة منزلية">أجهزة منزلية</option>
+
                       <option value="أثاث">أثاث</option>
+
                       <option value="ملابس">ملابس</option>
+
                       <option value="أحذية">أحذية</option>
+
                       <option value="حقائب وإكسسوارات">حقائب وإكسسوارات</option>
+
                       <option value="ساعات ومجوهرات">ساعات ومجوهرات</option>
+
                       <option value="عناية شخصية وتجميل">
                         عناية شخصية وتجميل
                       </option>
+
                       <option value="أطفال ورضع">أطفال ورضع</option>
+
                       <option value="ألعاب أطفال">ألعاب أطفال</option>
+
                       <option value="كتب وقرطاسية">كتب وقرطاسية</option>
+
                       <option value="رياضة ولياقة">رياضة ولياقة</option>
+
                       <option value="سيارات وقطع غيار">سيارات وقطع غيار</option>
+
                       <option value="دراجات">دراجات</option>
+
                       <option value="أدوات ومعدات">أدوات ومعدات</option>
+
                       <option value="مستلزمات منزلية">مستلزمات منزلية</option>
+
                       <option value="حديقة وزراعة">حديقة وزراعة</option>
+
                       <option value="حيوانات ومستلزماتها">
                         حيوانات ومستلزماتها
                       </option>
+
                       <option value="مأكولات ومنتجات منزلية">
                         مأكولات ومنتجات منزلية
                       </option>
+
                       <option value="هوايات ومقتنيات">هوايات ومقتنيات</option>
+
                       <option value="أخرى">أخرى</option>
                     </select>
                   </div>
@@ -246,8 +296,11 @@ function SellProduct() {
                       onChange={handleChange}
                     >
                       <option value="">اختر الحالة</option>
+
                       <option value="جديد">جديد</option>
+
                       <option value="ممتاز">ممتاز</option>
+
                       <option value="مستخدم">مستخدم</option>
                     </select>
                   </div>
@@ -302,10 +355,15 @@ function SellProduct() {
                     onChange={handleChange}
                   >
                     <option value="">اختر المنطقة</option>
+
                     <option value="غزة">غزة</option>
+
                     <option value="شمال غزة">شمال غزة</option>
+
                     <option value="دير البلح">دير البلح</option>
+
                     <option value="خان يونس">خان يونس</option>
+
                     <option value="رفح">رفح</option>
                   </select>
                 </div>
@@ -320,16 +378,6 @@ function SellProduct() {
                   <p>استخدم صورة واضحة، عنوان مختصر، ووصف دقيق لحالة المنتج.</p>
                 </div>
               </div>
-
-              {message && (
-                <div
-                  className={`sell-message ${
-                    message.includes("بنجاح") ? "success" : "error"
-                  }`}
-                >
-                  {message}
-                </div>
-              )}
 
               <button type="submit" className="publish-btn">
                 نشر المنتج

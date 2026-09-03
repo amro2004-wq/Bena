@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ArrowRight, UserRound, Mail, MapPin, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import Toast from "../components/Toast";
+
 import "./Profile.css";
 
 function Profile() {
@@ -20,6 +22,27 @@ function Profile() {
     );
   });
 
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
   const saveProfile = () => {
     const name = profile.name.trim();
     const email = profile.email.trim();
@@ -27,17 +50,20 @@ function Profile() {
     const location = profile.location.trim();
 
     if (!name) {
-      alert("يرجى إدخال الاسم");
+      showToast("يرجى إدخال الاسم", "error");
+
       return;
     }
 
     if (!email) {
-      alert("يرجى إدخال البريد الإلكتروني");
+      showToast("يرجى إدخال البريد الإلكتروني", "error");
+
       return;
     }
 
     if (!email.includes("@") || !email.includes(".")) {
-      alert("يرجى إدخال بريد إلكتروني صحيح");
+      showToast("يرجى إدخال بريد إلكتروني صحيح", "error");
+
       return;
     }
 
@@ -54,10 +80,14 @@ function Profile() {
     localStorage.setItem("benaProfile", JSON.stringify(updatedProfile));
 
     setIsEditing(false);
+
+    showToast("تم حفظ بيانات الحساب بنجاح ✓", "success");
   };
 
   return (
     <main className="profile-page" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="profile-container">
         <button
           type="button"

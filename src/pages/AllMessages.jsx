@@ -7,6 +7,7 @@ function AllMessages() {
   const navigate = useNavigate();
 
   const savedChats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+
   const savedNotifications =
     JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
@@ -22,7 +23,9 @@ function AllMessages() {
 
       if (!product) return null;
 
-      const lastMessage = messages[messages.length - 1];
+      const safeMessages = Array.isArray(messages) ? messages : [];
+
+      const lastMessage = safeMessages[safeMessages.length - 1];
 
       const unreadCount = savedNotifications.filter(
         (notification) =>
@@ -56,7 +59,9 @@ function AllMessages() {
 
         <div className="all-messages-heading">
           <span>تواصل بسهولة</span>
+
           <h1>الرسائل</h1>
+
           <p>كل محادثاتك مع البائعين موجودة هنا.</p>
         </div>
 
@@ -66,7 +71,9 @@ function AllMessages() {
               <button
                 type="button"
                 key={product.id}
-                className="conversation-card"
+                className={`conversation-card ${
+                  unreadCount > 0 ? "conversation-card--unread" : ""
+                }`}
                 onClick={() => navigate(`/messages/${product.id}`)}
               >
                 <img
@@ -94,13 +101,22 @@ function AllMessages() {
 
                   <div className="conversation-location">
                     <MapPin size={13} />
+
                     {product.location}
                   </div>
 
                   <p className="conversation-last-message">
-                    {lastMessage?.type === "buyer" ? "أنت: " : "البائع: "}
+                    {lastMessage ? (
+                      <>
+                        <span className="conversation-message-owner">
+                          {lastMessage.type === "buyer" ? "أنت: " : "البائع: "}
+                        </span>
 
-                    {lastMessage?.text || "ابدأ المحادثة"}
+                        {lastMessage.text}
+                      </>
+                    ) : (
+                      "ابدأ المحادثة"
+                    )}
                   </p>
                 </div>
 
