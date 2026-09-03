@@ -1,16 +1,56 @@
-# React + Vite
+# Bena | بينا
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**بينا** هي منصة إلكترونية لبيع وشراء المنتجات بين المستخدمين داخل قطاع غزة، تهدف إلى تسهيل عملية عرض المنتجات المستعملة والجديدة والتواصل بين البائع والمشتري بطريقة بسيطة وسهلة.
 
-Currently, two official plugins are available:
+> من الناس... للناس
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## About the Project
 
-## React Compiler
+Bena is an Arabic marketplace platform where users can browse, sell, and manage products within the Gaza Strip.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The project is currently developed as a Front-End application using React.
 
-## Expanding the Oxlint configuration
+## Features
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+- تصفح المنتجات
+- البحث عن المنتجات
+- تصفية المنتجات حسب التصنيف
+- عرض تفاصيل المنتج
+- إضافة منتجات جديدة للبيع
+- تعديل وحذف المنتجات
+- إضافة المنتجات إلى المفضلة
+- التواصل مع البائع من خلال الرسائل
+- نظام إشعارات
+- إدارة المنتجات الخاصة بالمستخدم
+- صفحة الملف الشخصي
+- تصميم عربي بالكامل RTL
+- تصميم Responsive لمختلف أحجام الشاشات
+
+## Technologies Used
+
+- React
+- Vite
+- JavaScript
+- CSS
+- React Router
+- Lucide React
+- React Icons
+- LocalStorage
+
+## Project Structure
+
+```text
+Bena/
+├── public/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── data/
+│   ├── pages/
+│   ├── App.jsx
+│   └── main.jsx
+├── .gitignore
+├── package.json
+├── README.md
+└── vite.config.js
+```
