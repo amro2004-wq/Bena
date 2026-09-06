@@ -17,7 +17,7 @@ import {
 
 function SellProduct() {
   const navigate = useNavigate();
-
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -104,19 +104,26 @@ function SellProduct() {
 
     const newProduct = {
       id: Date.now(),
+
+      sellerId: currentUser.id,
+      sellerName: currentUser.name,
+
       name: name.trim(),
       category,
       condition,
+
       conditionClass:
         condition === "جديد"
           ? "new"
           : condition === "ممتاز"
             ? "excellent"
             : "used",
+
       price: Number(price),
       location,
       description: description.trim(),
       image: imagePreview,
+
       createdAt: new Date().toISOString(),
     };
 
@@ -130,11 +137,19 @@ function SellProduct() {
 
     const newNotification = {
       id: Date.now() + 1,
+
+      userId: Number(currentUser.id),
+
       type: "product",
+
       title: "تم نشر المنتج",
+
       text: `تم نشر منتج "${newProduct.name}" بنجاح على بينا.`,
+
       createdAt: new Date().toISOString(),
+
       read: false,
+
       link: `/products/${newProduct.id}`,
     };
 

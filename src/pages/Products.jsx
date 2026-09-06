@@ -1,5 +1,7 @@
 import "./Products.css";
+
 import { defaultProducts } from "../data/products";
+
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -46,7 +48,12 @@ const categories = [
 
 function Products() {
   const navigate = useNavigate();
+
   const [searchParams] = useSearchParams();
+
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  const userId = currentUser ? String(currentUser.id) : null;
 
   const initialSearch = searchParams.get("search") || "";
 
@@ -69,7 +76,18 @@ function Products() {
   const [sort, setSort] = useState("latest");
 
   const [favorites, setFavorites] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaFavorites")) || [];
+    if (!userId) {
+      return [];
+    }
+
+    const allFavorites =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+    if (Array.isArray(allFavorites)) {
+      return [];
+    }
+
+    return allFavorites[userId] || [];
   });
 
   const [productToDelete, setProductToDelete] = useState(null);
@@ -95,7 +113,21 @@ function Products() {
     }, 2200);
   };
 
+  const isOwner = (product) => {
+    if (!currentUser || !product?.sellerId) {
+      return false;
+    }
+
+    return Number(product.sellerId) === Number(currentUser.id);
+  };
+
   const openDeleteModal = (product) => {
+    if (!isOwner(product)) {
+      showToast("لا يمكنك حذف منتج تابع لمستخدم آخر", "error");
+
+      return;
+    }
+
     setProductToDelete(product);
   };
 
@@ -159,13 +191,27 @@ function Products() {
     }
 
     return result;
-  }, [products, search, category, condition, location, sort]);
+  }, [savedProducts, search, category, condition, location, sort]);
 
   const isFavorite = (id) => {
     return favorites.some((item) => Number(item) === Number(id));
   };
 
   const toggleFavorite = (id) => {
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً لإضافة المنتجات للمفضلة", "info");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: window.location.pathname + window.location.search,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
     setFavorites((current) => {
       const exists = current.some((item) => Number(item) === Number(id));
 
@@ -173,14 +219,42 @@ function Products() {
         ? current.filter((item) => Number(item) !== Number(id))
         : [...current, id];
 
-      localStorage.setItem("benaFavorites", JSON.stringify(updated));
+      const allFavorites =
+        JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+      const favoritesObject = Array.isArray(allFavorites) ? {} : allFavorites;
+
+      const updatedAllFavorites = {
+        ...favoritesObject,
+        [userId]: updated,
+      };
+
+      localStorage.setItem(
+        "benaFavorites",
+        JSON.stringify(updatedAllFavorites),
+      );
+
+      showToast(
+        exists ? "تمت إزالة المنتج من المفضلة" : "تمت إضافة المنتج للمفضلة ✓",
+        exists ? "info" : "success",
+      );
 
       return updated;
     });
   };
 
   const deleteProduct = () => {
-    if (!productToDelete) return;
+    if (!productToDelete) {
+      return;
+    }
+
+    if (!isOwner(productToDelete)) {
+      closeDeleteModal();
+
+      showToast("لا يمكنك حذف منتج تابع لمستخدم آخر", "error");
+
+      return;
+    }
 
     const productId = productToDelete.id;
 
@@ -196,13 +270,31 @@ function Products() {
 
     /* DELETE FAVORITE */
 
-    const updatedFavorites = favorites.filter(
-      (id) => Number(id) !== Number(productId),
-    );
+    const allFavorites =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
 
-    setFavorites(updatedFavorites);
+    if (!Array.isArray(allFavorites)) {
+      const updatedAllFavorites = {};
 
-    localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+      Object.entries(allFavorites).forEach(([favoriteUserId, ids]) => {
+        updatedAllFavorites[favoriteUserId] = Array.isArray(ids)
+          ? ids.filter((favoriteId) => Number(favoriteId) !== Number(productId))
+          : [];
+      });
+
+      localStorage.setItem(
+        "benaFavorites",
+        JSON.stringify(updatedAllFavorites),
+      );
+
+      if (userId) {
+        setFavorites(updatedAllFavorites[userId] || []);
+      }
+    } else {
+      localStorage.setItem("benaFavorites", JSON.stringify({}));
+
+      setFavorites([]);
+    }
 
     /* DELETE CHAT */
 
@@ -363,9 +455,13 @@ function Products() {
               className="reset-filters"
               onClick={() => {
                 setSearch("");
+
                 setCategory("الكل");
+
                 setCondition("الكل");
+
                 setLocation("الكل");
+
                 setSort("latest");
 
                 navigate("/products");
@@ -403,25 +499,27 @@ function Products() {
                     <div className="all-product-image">
                       <img src={product.image} alt={product.name} />
 
-                      <button
-                        type="button"
-                        className={`all-product-heart ${
-                          isFavorite(product.id) ? "active" : ""
-                        }`}
-                        aria-label="المفضلة"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                      {!isOwner(product) && (
+                        <button
+                          type="button"
+                          className={`all-product-heart ${
+                            isFavorite(product.id) ? "active" : ""
+                          }`}
+                          aria-label="المفضلة"
+                          onClick={(e) => {
+                            e.stopPropagation();
 
-                          toggleFavorite(product.id);
-                        }}
-                      >
-                        <Heart
-                          size={19}
-                          fill={
-                            isFavorite(product.id) ? "currentColor" : "none"
-                          }
-                        />
-                      </button>
+                            toggleFavorite(product.id);
+                          }}
+                        >
+                          <Heart
+                            size={19}
+                            fill={
+                              isFavorite(product.id) ? "currentColor" : "none"
+                            }
+                          />
+                        </button>
+                      )}
 
                       <span
                         className={`all-product-condition ${product.conditionClass}`}
@@ -451,9 +549,7 @@ function Products() {
                         <span>₪</span>
                       </div>
 
-                      {savedProducts.some(
-                        (item) => Number(item.id) === Number(product.id),
-                      ) && (
+                      {isOwner(product) && (
                         <div className="all-product-manage">
                           <button
                             type="button"

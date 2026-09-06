@@ -1,17 +1,42 @@
 import "./LatestProducts.css";
+
 import { defaultProducts } from "../data/products";
+
 import { Heart, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { useRef, useState } from "react";
+
+import Toast from "../components/Toast";
 
 function LatestProducts() {
   const navigate = useNavigate();
 
   const sliderRef = useRef(null);
 
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  const userId = currentUser ? String(currentUser.id) : null;
+
   const [favorites, setFavorites] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaFavorites")) || [];
+    if (!userId) {
+      return [];
+    }
+
+    const allFavorites =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+    if (Array.isArray(allFavorites)) {
+      return [];
+    }
+
+    return allFavorites[userId] || [];
+  });
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
   });
 
   const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
@@ -22,8 +47,31 @@ function LatestProducts() {
     (a, b) => Number(b.id) - Number(a.id),
   );
 
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
   const openProduct = (id) => {
     navigate(`/products/${id}`);
+  };
+
+  const isOwner = (product) => {
+    if (!currentUser || !product?.sellerId) {
+      return false;
+    }
+
+    return Number(product.sellerId) === Number(currentUser.id);
   };
 
   const isFavorite = (id) => {
@@ -31,6 +79,20 @@ function LatestProducts() {
   };
 
   const toggleFavorite = (id) => {
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً لإضافة المنتجات للمفضلة", "info");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: window.location.pathname + window.location.search,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
     setFavorites((current) => {
       const exists = current.some((item) => Number(item) === Number(id));
 
@@ -38,29 +100,54 @@ function LatestProducts() {
         ? current.filter((item) => Number(item) !== Number(id))
         : [...current, id];
 
-      localStorage.setItem("benaFavorites", JSON.stringify(updated));
+      const allFavorites =
+        JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+      const favoritesObject = Array.isArray(allFavorites) ? {} : allFavorites;
+
+      const updatedAllFavorites = {
+        ...favoritesObject,
+        [userId]: updated,
+      };
+
+      localStorage.setItem(
+        "benaFavorites",
+        JSON.stringify(updatedAllFavorites),
+      );
+
+      showToast(
+        exists ? "تمت إزالة المنتج من المفضلة" : "تمت إضافة المنتج للمفضلة ✓",
+        exists ? "info" : "success",
+      );
 
       return updated;
     });
   };
 
   const scrollSlider = (direction) => {
-    if (!sliderRef.current) return;
+    if (!sliderRef.current) {
+      return;
+    }
 
     const card = sliderRef.current.querySelector(".product-card");
 
-    if (!card) return;
+    if (!card) {
+      return;
+    }
 
     const cardWidth = card.offsetWidth + 18;
 
     sliderRef.current.scrollBy({
       left: direction === "left" ? -cardWidth : cardWidth,
+
       behavior: "smooth",
     });
   };
 
   return (
     <section id="latest-products" className="latest-products" dir="rtl">
+      <Toast show={toast.show} message={toast.message} type={toast.type} />
+
       <div className="latest-products__header">
         <h2>
           <span></span>
@@ -106,24 +193,30 @@ function LatestProducts() {
               <div className="product-card__image">
                 <img src={product.image} alt={product.name} />
 
-                <button
-                  type="button"
-                  className={`product-card__favorite ${
-                    isFavorite(product.id) ? "active" : ""
-                  }`}
-                  aria-label="أضف للمفضلة"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                {!isOwner(product) && (
+                  <button
+                    type="button"
+                    className={`product-card__favorite ${
+                      isFavorite(product.id) ? "active" : ""
+                    }`}
+                    aria-label={
+                      isFavorite(product.id)
+                        ? "إزالة من المفضلة"
+                        : "إضافة للمفضلة"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
 
-                    toggleFavorite(product.id);
-                  }}
-                >
-                  <Heart
-                    size={18}
-                    strokeWidth={1.8}
-                    fill={isFavorite(product.id) ? "currentColor" : "none"}
-                  />
-                </button>
+                      toggleFavorite(product.id);
+                    }}
+                  >
+                    <Heart
+                      size={18}
+                      strokeWidth={1.8}
+                      fill={isFavorite(product.id) ? "currentColor" : "none"}
+                    />
+                  </button>
+                )}
 
                 <span
                   className={`product-card__condition ${product.conditionClass}`}

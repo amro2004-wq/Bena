@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Save } from "lucide-react";
+import { ArrowRight, Save, ShieldAlert } from "lucide-react";
 
 import Toast from "../components/Toast";
 
@@ -10,9 +10,16 @@ function EditProduct() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
   const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
 
   const product = savedProducts.find((item) => Number(item.id) === Number(id));
+
+  const isOwner =
+    product &&
+    currentUser &&
+    Number(product.sellerId) === Number(currentUser.id);
 
   const [formData, setFormData] = useState(() => ({
     name: product?.name || "",
@@ -82,6 +89,12 @@ function EditProduct() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    if (!isOwner) {
+      showToast("لا يمكنك تعديل منتج لا تملكه", "error");
+
+      return;
+    }
+
     if (
       !formData.name.trim() ||
       !formData.price ||
@@ -95,19 +108,26 @@ function EditProduct() {
     }
 
     const updatedProducts = savedProducts.map((item) =>
-      Number(item.id) === Number(id)
+      Number(item.id) === Number(id) &&
+      Number(item.sellerId) === Number(currentUser.id)
         ? {
             ...item,
             ...formData,
+
             name: formData.name.trim(),
+
             price: Number(formData.price),
+
             description: formData.description.trim(),
+
             conditionClass:
               formData.condition === "جديد"
                 ? "new"
                 : formData.condition === "ممتاز"
                   ? "excellent"
                   : "used",
+
+            updatedAt: new Date().toISOString(),
           }
         : item,
     );
@@ -126,6 +146,24 @@ function EditProduct() {
       <main className="edit-product-page" dir="rtl">
         <div className="edit-product-not-found">
           <h2>المنتج غير موجود</h2>
+
+          <button type="button" onClick={() => navigate("/my-products")}>
+            العودة لمنتجاتي
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <main className="edit-product-page" dir="rtl">
+        <div className="edit-product-not-found">
+          <ShieldAlert size={40} />
+
+          <h2>لا يمكنك تعديل هذا المنتج</h2>
+
+          <p>هذا المنتج تابع لمستخدم آخر.</p>
 
           <button type="button" onClick={() => navigate("/my-products")}>
             العودة لمنتجاتي

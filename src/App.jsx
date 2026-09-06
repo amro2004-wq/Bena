@@ -12,33 +12,100 @@ import MyProducts from "./pages/MyProducts";
 import EditProduct from "./pages/EditProduct";
 import InfoPage from "./pages/InfoPage";
 import NotFound from "./pages/NotFound";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-
       <Route path="/products" element={<Products />} />
-
       <Route path="/products/:id" element={<ProductDetails />} />
-
-      <Route path="/sell" element={<SellProduct />} />
-
-      <Route path="/favorites" element={<Favorites />} />
-
-      <Route path="/messages" element={<AllMessages />} />
-
-      <Route path="/messages/:id" element={<Messages />} />
-
-      <Route path="/profile" element={<Profile />} />
-
-      <Route path="/my-products" element={<MyProducts />} />
-
-      <Route path="/edit-product/:id" element={<EditProduct />} />
-
+      <Route
+        path="/sell"
+        element={
+          <ProtectedRoute>
+            <SellProduct />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/favorites"
+        element={
+          <ProtectedRoute>
+            <Favorites />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <AllMessages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages/:id"
+        element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-products"
+        element={
+          <ProtectedRoute>
+            <MyProducts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/edit-product/:id"
+        element={
+          <ProtectedRoute>
+            <EditProduct />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/info/:page" element={<InfoPage />} />
-
       <Route path="*" element={<NotFound />} />
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        }
+      />{" "}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />{" "}
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
     </Routes>
   );
 }

@@ -1,6 +1,9 @@
 import "./Favorites.css";
+
 import { defaultProducts } from "../data/products";
+
 import { Heart, MapPin, ArrowRight } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
@@ -9,9 +12,22 @@ import Toast from "../components/Toast";
 function Favorites() {
   const navigate = useNavigate();
 
-  const [favoriteIds, setFavoriteIds] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaFavorites")) || [];
-  });
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  const userId = String(currentUser?.id);
+
+  const getUserFavorites = () => {
+    const allFavorites =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+    if (Array.isArray(allFavorites)) {
+      return [];
+    }
+
+    return allFavorites[userId] || [];
+  };
+
+  const [favoriteIds, setFavoriteIds] = useState(getUserFavorites);
 
   const [toast, setToast] = useState({
     show: false,
@@ -51,7 +67,18 @@ function Favorites() {
 
     setFavoriteIds(updatedFavorites);
 
-    localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+    const allFavorites =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+    const favoritesObject = Array.isArray(allFavorites) ? {} : allFavorites;
+
+    const updatedAllFavorites = {
+      ...favoritesObject,
+
+      [userId]: updatedFavorites,
+    };
+
+    localStorage.setItem("benaFavorites", JSON.stringify(updatedAllFavorites));
 
     showToast("تمت إزالة المنتج من المفضلة", "info");
   };
@@ -121,6 +148,7 @@ function Favorites() {
 
                   <div className="favorite-location">
                     <MapPin size={14} />
+
                     {product.location}
                   </div>
 

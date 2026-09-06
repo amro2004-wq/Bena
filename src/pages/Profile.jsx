@@ -9,18 +9,24 @@ import "./Profile.css";
 function Profile() {
   const navigate = useNavigate();
 
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  const savedProfiles = JSON.parse(localStorage.getItem("benaProfiles")) || {};
+
+  const savedProfile = savedProfiles[currentUser?.id] || {};
+
+  const initialProfile = {
+    name: currentUser?.name || "مستخدم بينا",
+    email: currentUser?.email || "",
+    phone: savedProfile.phone || "",
+    location: savedProfile.location || "قطاع غزة",
+  };
+
   const [isEditing, setIsEditing] = useState(false);
 
-  const [profile, setProfile] = useState(() => {
-    return (
-      JSON.parse(localStorage.getItem("benaProfile")) || {
-        name: "مستخدم بينا",
-        email: "user@example.com",
-        phone: "",
-        location: "قطاع غزة",
-      }
-    );
-  });
+  const [profile, setProfile] = useState(initialProfile);
+
+  const [originalProfile, setOriginalProfile] = useState(initialProfile);
 
   const [toast, setToast] = useState({
     show: false,
@@ -43,14 +49,33 @@ function Profile() {
     }, 2200);
   };
 
+  const startEditing = () => {
+    setOriginalProfile(profile);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setProfile(originalProfile);
+    setIsEditing(false);
+  };
+
   const saveProfile = () => {
     const name = profile.name.trim();
-    const email = profile.email.trim();
+
+    const email = profile.email.trim().toLowerCase();
+
     const phone = profile.phone.trim();
+
     const location = profile.location.trim();
 
     if (!name) {
       showToast("يرجى إدخال الاسم", "error");
+
+      return;
+    }
+
+    if (name.length < 3) {
+      showToast("الاسم يجب أن يكون 3 أحرف على الأقل", "error");
 
       return;
     }
@@ -61,23 +86,67 @@ function Profile() {
       return;
     }
 
-    if (!email.includes("@") || !email.includes(".")) {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
       showToast("يرجى إدخال بريد إلكتروني صحيح", "error");
 
       return;
     }
 
+    const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+
+    const emailExists = users.some(
+      (user) =>
+        user.id !== currentUser.id && user.email.toLowerCase() === email,
+    );
+
+    if (emailExists) {
+      showToast("البريد الإلكتروني مستخدم من حساب آخر", "error");
+
+      return;
+    }
+
+    const updatedUsers = users.map((user) =>
+      user.id === currentUser.id
+        ? {
+            ...user,
+            name,
+            email,
+          }
+        : user,
+    );
+
+    localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
+
+    const updatedCurrentUser = {
+      ...currentUser,
+      name,
+      email,
+    };
+
+    localStorage.setItem("benaCurrentUser", JSON.stringify(updatedCurrentUser));
+
     const updatedProfile = {
-      ...profile,
       name,
       email,
       phone,
       location: location || "قطاع غزة",
     };
 
-    setProfile(updatedProfile);
+    const updatedProfiles = {
+      ...savedProfiles,
 
-    localStorage.setItem("benaProfile", JSON.stringify(updatedProfile));
+      [currentUser.id]: {
+        phone,
+        location: location || "قطاع غزة",
+      },
+    };
+
+    localStorage.setItem("benaProfiles", JSON.stringify(updatedProfiles));
+
+    setProfile(updatedProfile);
+    setOriginalProfile(updatedProfile);
 
     setIsEditing(false);
 
@@ -209,19 +278,31 @@ function Profile() {
             </div>
           </div>
 
-          <button
-            type="button"
-            className="edit-profile-button"
-            onClick={() => {
-              if (isEditing) {
-                saveProfile();
-              } else {
-                setIsEditing(true);
-              }
-            }}
-          >
-            {isEditing ? "حفظ البيانات" : "تعديل البيانات"}
-          </button>
+          <div className="profile-actions">
+            {isEditing && (
+              <button
+                type="button"
+                className="cancel-profile-button"
+                onClick={cancelEditing}
+              >
+                إلغاء
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="edit-profile-button"
+              onClick={() => {
+                if (isEditing) {
+                  saveProfile();
+                } else {
+                  startEditing();
+                }
+              }}
+            >
+              {isEditing ? "حفظ البيانات" : "تعديل البيانات"}
+            </button>
+          </div>
         </div>
       </div>
     </main>

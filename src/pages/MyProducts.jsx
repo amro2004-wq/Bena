@@ -1,5 +1,7 @@
 import { useState } from "react";
+
 import { useNavigate } from "react-router-dom";
+
 import {
   ArrowRight,
   MapPin,
@@ -17,9 +19,17 @@ import "./MyProducts.css";
 function MyProducts() {
   const navigate = useNavigate();
 
-  const [products, setProducts] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaProducts")) || [];
-  });
+  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  const getMyProducts = () => {
+    const allProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
+
+    return allProducts.filter(
+      (product) => Number(product.sellerId) === Number(currentUser?.id),
+    );
+  };
+
+  const [products, setProducts] = useState(getMyProducts);
 
   const [productToDelete, setProductToDelete] = useState(null);
 
@@ -45,6 +55,12 @@ function MyProducts() {
   };
 
   const openDeleteModal = (product) => {
+    if (Number(product.sellerId) !== Number(currentUser?.id)) {
+      showToast("لا يمكنك حذف هذا المنتج", "error");
+
+      return;
+    }
+
     setProductToDelete(product);
   };
 
@@ -53,48 +69,98 @@ function MyProducts() {
   };
 
   const deleteProduct = () => {
-    if (!productToDelete) return;
+    if (!productToDelete) {
+      return;
+    }
+
+    if (Number(productToDelete.sellerId) !== Number(currentUser?.id)) {
+      closeDeleteModal();
+
+      showToast("لا يمكنك حذف هذا المنتج", "error");
+
+      return;
+    }
 
     const productId = productToDelete.id;
 
+    const allProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
+
     /* DELETE PRODUCT */
 
-    const updatedProducts = products.filter(
+    const updatedAllProducts = allProducts.filter(
       (product) => Number(product.id) !== Number(productId),
     );
 
-    setProducts(updatedProducts);
+    localStorage.setItem("benaProducts", JSON.stringify(updatedAllProducts));
 
-    localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
-
-    /* DELETE FAVORITE */
-
-    const favorites = JSON.parse(localStorage.getItem("benaFavorites")) || [];
-
-    const updatedFavorites = favorites.filter(
-      (id) => Number(id) !== Number(productId),
+    setProducts(
+      updatedAllProducts.filter(
+        (product) => Number(product.sellerId) === Number(currentUser?.id),
+      ),
     );
 
-    localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+    /* DELETE FAVORITES */
 
-    /* DELETE CHAT */
+    const favoritesData =
+      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+
+    if (Array.isArray(favoritesData)) {
+      localStorage.setItem("benaFavorites", JSON.stringify({}));
+    } else {
+      const updatedFavorites = {};
+
+      Object.entries(favoritesData).forEach(([favoriteUserId, ids]) => {
+        updatedFavorites[favoriteUserId] = Array.isArray(ids)
+          ? ids.filter((favoriteId) => Number(favoriteId) !== Number(productId))
+          : [];
+      });
+
+      localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+    }
+
+    /* DELETE CHATS */
 
     const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
 
-    delete chats[productId];
+    const updatedChats = {};
 
-    localStorage.setItem("benaMessages", JSON.stringify(chats));
+    Object.entries(chats).forEach(([conversationId, conversation]) => {
+      if (Array.isArray(conversation)) {
+        return;
+      }
+
+      if (Number(conversation?.productId) !== Number(productId)) {
+        updatedChats[conversationId] = conversation;
+      }
+    });
+
+    localStorage.setItem("benaMessages", JSON.stringify(updatedChats));
 
     /* DELETE NOTIFICATIONS */
 
     const notifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
-    const updatedNotifications = notifications.filter(
-      (notification) =>
-        notification.link !== `/products/${productId}` &&
-        notification.link !== `/messages/${productId}`,
-    );
+    const updatedNotifications = notifications.filter((notification) => {
+      const productLink = `/products/${productId}`;
+
+      const messageLinkStart = `/messages/${productId}`;
+
+      const isProductNotification = notification.link === productLink;
+
+      const isMessageNotification =
+        notification.link?.startsWith(messageLinkStart);
+
+      const isConversationNotification = notification.conversationId
+        ?.toString()
+        .startsWith(`${productId}_`);
+
+      return !(
+        isProductNotification ||
+        isMessageNotification ||
+        isConversationNotification
+      );
+    });
 
     localStorage.setItem(
       "benaNotifications",
@@ -104,6 +170,16 @@ function MyProducts() {
     closeDeleteModal();
 
     showToast("تم حذف المنتج بنجاح ✓", "success");
+  };
+
+  const editProduct = (product) => {
+    if (Number(product.sellerId) !== Number(currentUser?.id)) {
+      showToast("لا يمكنك تعديل هذا المنتج", "error");
+
+      return;
+    }
+
+    navigate(`/edit-product/${product.id}`);
   };
 
   return (
@@ -166,7 +242,7 @@ function MyProducts() {
                     <button
                       type="button"
                       className="edit-product-button"
-                      onClick={() => navigate(`/edit-product/${product.id}`)}
+                      onClick={() => editProduct(product)}
                     >
                       <Pencil size={16} />
                       تعديل

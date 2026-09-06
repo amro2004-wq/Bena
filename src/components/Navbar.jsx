@@ -1,7 +1,11 @@
 import "./Navbar.css";
+
 import benaLogo from "../assets/bena-logo.png";
+
 import { useEffect, useRef, useState } from "react";
+
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import {
   Heart,
   MessageCircle,
@@ -11,6 +15,10 @@ import {
   TriangleAlert,
   Trash2,
   X,
+  LogIn,
+  LogOut,
+  Package,
+  User,
 } from "lucide-react";
 
 import Toast from "../components/Toast";
@@ -26,9 +34,14 @@ function Navbar() {
   const [showClearModal, setShowClearModal] = useState(false);
 
   const notificationRef = useRef(null);
+
   const accountRef = useRef(null);
 
-  const [notifications, setNotifications] = useState(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
+    return JSON.parse(localStorage.getItem("benaCurrentUser"));
+  });
+
+  const [allNotifications, setAllNotifications] = useState(() => {
     return JSON.parse(localStorage.getItem("benaNotifications")) || [];
   });
 
@@ -37,6 +50,15 @@ function Navbar() {
     message: "",
     type: "success",
   });
+
+  /* USER NOTIFICATIONS */
+
+  const notifications = currentUser
+    ? allNotifications.filter(
+        (notification) =>
+          Number(notification.userId) === Number(currentUser.id),
+      )
+    : [];
 
   const unreadCount = notifications.filter(
     (notification) => !notification.read,
@@ -61,12 +83,20 @@ function Navbar() {
     }, 2200);
   };
 
+  /* REFRESH DATA */
+
   useEffect(() => {
     const savedNotifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
-    setNotifications(savedNotifications);
-  }, [location.pathname]);
+    setAllNotifications(savedNotifications);
+
+    const savedUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+    setCurrentUser(savedUser);
+  }, [location.pathname, location.search]);
+
+  /* NOTIFICATIONS OUTSIDE CLICK */
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -85,6 +115,8 @@ function Navbar() {
     };
   }, []);
 
+  /* ACCOUNT OUTSIDE CLICK */
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (accountRef.current && !accountRef.current.contains(event.target)) {
@@ -99,17 +131,66 @@ function Navbar() {
     };
   }, []);
 
-  const openNotification = (notification) => {
-    const updatedNotifications = notifications.map((item) =>
-      item.id === notification.id
-        ? {
-            ...item,
-            read: true,
-          }
-        : item,
-    );
+  /* REQUIRE LOGIN */
 
-    setNotifications(updatedNotifications);
+  const requireLogin = (path) => {
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً للمتابعة", "info");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: path,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
+    navigate(path);
+  };
+
+  /* LOGOUT */
+
+  const handleLogout = () => {
+    localStorage.removeItem("benaCurrentUser");
+
+    setCurrentUser(null);
+
+    setShowAccountMenu(false);
+
+    setShowNotifications(false);
+
+    showToast("تم تسجيل الخروج بنجاح", "success");
+
+    setTimeout(() => {
+      navigate("/");
+    }, 700);
+  };
+
+  /* OPEN NOTIFICATION */
+
+  const openNotification = (notification) => {
+    if (!currentUser) {
+      return;
+    }
+
+    const updatedNotifications = allNotifications.map((item) => {
+      if (
+        item.id === notification.id &&
+        Number(item.userId) === Number(currentUser.id)
+      ) {
+        return {
+          ...item,
+          read: true,
+        };
+      }
+
+      return item;
+    });
+
+    setAllNotifications(updatedNotifications);
 
     localStorage.setItem(
       "benaNotifications",
@@ -123,13 +204,25 @@ function Navbar() {
     }
   };
 
-  const markAllAsRead = () => {
-    const updatedNotifications = notifications.map((notification) => ({
-      ...notification,
-      read: true,
-    }));
+  /* MARK ALL READ */
 
-    setNotifications(updatedNotifications);
+  const markAllAsRead = () => {
+    if (!currentUser) {
+      return;
+    }
+
+    const updatedNotifications = allNotifications.map((notification) => {
+      if (Number(notification.userId) === Number(currentUser.id)) {
+        return {
+          ...notification,
+          read: true,
+        };
+      }
+
+      return notification;
+    });
+
+    setAllNotifications(updatedNotifications);
 
     localStorage.setItem(
       "benaNotifications",
@@ -139,14 +232,24 @@ function Navbar() {
     showToast("تم تحديد جميع الإشعارات كمقروءة ✓", "success");
   };
 
+  /* DELETE NOTIFICATION */
+
   const deleteNotification = (e, notificationId) => {
     e.stopPropagation();
 
-    const updatedNotifications = notifications.filter(
-      (notification) => notification.id !== notificationId,
-    );
+    if (!currentUser) {
+      return;
+    }
 
-    setNotifications(updatedNotifications);
+    const updatedNotifications = allNotifications.filter((notification) => {
+      const isTarget =
+        notification.id === notificationId &&
+        Number(notification.userId) === Number(currentUser.id);
+
+      return !isTarget;
+    });
+
+    setAllNotifications(updatedNotifications);
 
     localStorage.setItem(
       "benaNotifications",
@@ -156,8 +259,11 @@ function Navbar() {
     showToast("تم حذف الإشعار", "info");
   };
 
+  /* CLEAR MODAL */
+
   const openClearModal = () => {
     setShowNotifications(false);
+
     setShowClearModal(true);
   };
 
@@ -165,15 +271,30 @@ function Navbar() {
     setShowClearModal(false);
   };
 
-  const clearAllNotifications = () => {
-    setNotifications([]);
+  /* CLEAR USER NOTIFICATIONS */
 
-    localStorage.setItem("benaNotifications", JSON.stringify([]));
+  const clearAllNotifications = () => {
+    if (!currentUser) {
+      return;
+    }
+
+    const updatedNotifications = allNotifications.filter(
+      (notification) => Number(notification.userId) !== Number(currentUser.id),
+    );
+
+    setAllNotifications(updatedNotifications);
+
+    localStorage.setItem(
+      "benaNotifications",
+      JSON.stringify(updatedNotifications),
+    );
 
     closeClearModal();
 
     showToast("تم مسح جميع الإشعارات ✓", "success");
   };
+
+  /* HOME SECTIONS */
 
   const goToSection = (sectionId) => {
     if (location.pathname !== "/") {
@@ -193,8 +314,12 @@ function Navbar() {
     });
   };
 
+  /* NOTIFICATION TIME */
+
   const getNotificationTime = (createdAt) => {
-    if (!createdAt) return "";
+    if (!createdAt) {
+      return "";
+    }
 
     const now = new Date();
 
@@ -221,6 +346,16 @@ function Navbar() {
     const days = Math.floor(difference / 86400);
 
     return `منذ ${days} ${days === 1 ? "يوم" : "أيام"}`;
+  };
+
+  /* FIRST NAME */
+
+  const getFirstName = () => {
+    if (!currentUser?.name) {
+      return "";
+    }
+
+    return currentUser.name.trim().split(" ")[0];
   };
 
   return (
@@ -266,7 +401,7 @@ function Navbar() {
             <button
               type="button"
               className="sell-button"
-              onClick={() => navigate("/sell")}
+              onClick={() => requireLogin("/sell")}
             >
               <Plus size={19} strokeWidth={2.2} />
 
@@ -277,7 +412,7 @@ function Navbar() {
               type="button"
               className="nav-icon"
               aria-label="المفضلة"
-              onClick={() => navigate("/favorites")}
+              onClick={() => requireLogin("/favorites")}
             >
               <Heart size={22} strokeWidth={1.8} />
             </button>
@@ -286,163 +421,219 @@ function Navbar() {
               type="button"
               className="nav-icon message-icon"
               aria-label="الرسائل"
-              onClick={() => navigate("/messages")}
+              onClick={() => requireLogin("/messages")}
             >
               <MessageCircle size={22} strokeWidth={1.8} />
 
-              {unreadMessagesCount > 0 && (
+              {currentUser && unreadMessagesCount > 0 && (
                 <span className="message-count">{unreadMessagesCount}</span>
               )}
             </button>
 
             {/* NOTIFICATIONS */}
 
-            <div className="notification-wrapper" ref={notificationRef}>
-              <button
-                type="button"
-                className="nav-icon notification"
-                aria-label="الإشعارات"
-                onClick={() => {
-                  setShowNotifications(!showNotifications);
+            {currentUser && (
+              <div className="notification-wrapper" ref={notificationRef}>
+                <button
+                  type="button"
+                  className="nav-icon notification"
+                  aria-label="الإشعارات"
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
 
-                  setShowAccountMenu(false);
-                }}
-              >
-                <Bell size={22} strokeWidth={1.8} />
+                    setShowAccountMenu(false);
+                  }}
+                >
+                  <Bell size={22} strokeWidth={1.8} />
 
-                {unreadCount > 0 && (
-                  <span className="notification-count">{unreadCount}</span>
-                )}
-              </button>
+                  {unreadCount > 0 && (
+                    <span className="notification-count">{unreadCount}</span>
+                  )}
+                </button>
 
-              {showNotifications && (
-                <div className="notification-dropdown">
-                  <div className="notification-dropdown__header">
-                    <div>
-                      <strong>الإشعارات</strong>
+                {showNotifications && (
+                  <div className="notification-dropdown">
+                    <div className="notification-dropdown__header">
+                      <div>
+                        <strong>الإشعارات</strong>
 
-                      <span className="notifications-number">
-                        {unreadCount > 0
-                          ? `${unreadCount} جديدة`
-                          : "لا يوجد جديد"}
-                      </span>
-                    </div>
+                        <span className="notifications-number">
+                          {unreadCount > 0
+                            ? `${unreadCount} جديدة`
+                            : "لا يوجد جديد"}
+                        </span>
+                      </div>
 
-                    <div className="notification-header-actions">
-                      {unreadCount > 0 && (
-                        <button
-                          type="button"
-                          className="mark-all-read"
-                          onClick={markAllAsRead}
-                        >
-                          تحديد الكل كمقروء
-                        </button>
-                      )}
-
-                      {notifications.length > 0 && (
-                        <button
-                          type="button"
-                          className="clear-notifications"
-                          onClick={openClearModal}
-                        >
-                          مسح الكل
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {notifications.length > 0 ? (
-                    notifications.map((notification) => (
-                      <button
-                        type="button"
-                        key={notification.id}
-                        className={`notification-item ${
-                          !notification.read ? "unread" : ""
-                        }`}
-                        onClick={() => openNotification(notification)}
-                      >
-                        {!notification.read && (
-                          <div className="notification-dot"></div>
+                      <div className="notification-header-actions">
+                        {unreadCount > 0 && (
+                          <button
+                            type="button"
+                            className="mark-all-read"
+                            onClick={markAllAsRead}
+                          >
+                            تحديد الكل كمقروء
+                          </button>
                         )}
 
-                        <div className="notification-content">
-                          <strong>{notification.title}</strong>
-
-                          <p>{notification.text}</p>
-
-                          <span>
-                            {getNotificationTime(notification.createdAt)}
-                          </span>
-                        </div>
-
-                        <span
-                          className="delete-notification"
-                          onClick={(e) =>
-                            deleteNotification(e, notification.id)
-                          }
-                          title="حذف الإشعار"
-                        >
-                          ×
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="notifications-empty">
-                      <Bell size={30} strokeWidth={1.5} />
-
-                      <strong>لا توجد إشعارات</strong>
-
-                      <p>أي إشعار جديد رح يظهر هون.</p>
+                        {notifications.length > 0 && (
+                          <button
+                            type="button"
+                            className="clear-notifications"
+                            onClick={openClearModal}
+                          >
+                            مسح الكل
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <button
+                          type="button"
+                          key={notification.id}
+                          className={`notification-item ${
+                            !notification.read ? "unread" : ""
+                          }`}
+                          onClick={() => openNotification(notification)}
+                        >
+                          {!notification.read && (
+                            <div className="notification-dot"></div>
+                          )}
+
+                          <div className="notification-content">
+                            <strong>
+                              {notification.title || "إشعار جديد"}
+                            </strong>
+
+                            <p>
+                              {notification.text || notification.message || ""}
+                            </p>
+
+                            <span>
+                              {getNotificationTime(notification.createdAt)}
+                            </span>
+                          </div>
+
+                          <span
+                            className="delete-notification"
+                            onClick={(e) =>
+                              deleteNotification(e, notification.id)
+                            }
+                            title="حذف الإشعار"
+                          >
+                            ×
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="notifications-empty">
+                        <Bell size={30} strokeWidth={1.5} />
+
+                        <strong>لا توجد إشعارات</strong>
+
+                        <p>أي إشعار جديد رح يظهر هون.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ACCOUNT */}
 
             <div className="account-wrapper" ref={accountRef}>
-              <button
-                type="button"
-                className="nav-icon"
-                aria-label="الحساب"
-                onClick={() => {
-                  setShowAccountMenu(!showAccountMenu);
-
-                  setShowNotifications(false);
-                }}
-              >
-                <UserRound size={22} strokeWidth={1.8} />
-              </button>
-
-              {showAccountMenu && (
-                <div className="account-dropdown">
+              {currentUser ? (
+                <>
                   <button
                     type="button"
+                    className="user-menu-button"
                     onClick={() => {
-                      setShowAccountMenu(false);
+                      setShowAccountMenu(!showAccountMenu);
 
-                      navigate("/profile");
+                      setShowNotifications(false);
                     }}
                   >
-                    حسابي
+                    <span className="user-menu-avatar">
+                      <UserRound size={18} strokeWidth={1.9} />
+                    </span>
+
+                    <span className="user-menu-name">{getFirstName()}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAccountMenu(false);
+                  {showAccountMenu && (
+                    <div className="account-dropdown">
+                      <div className="account-user-info">
+                        <div className="account-user-avatar">
+                          <UserRound size={21} strokeWidth={1.8} />
+                        </div>
 
-                      navigate("/my-products");
-                    }}
-                  >
-                    منتجاتي
-                  </button>
+                        <div>
+                          <strong>{currentUser.name}</strong>
 
-                  <button type="button" className="logout-button">
-                    تسجيل الخروج
-                  </button>
-                </div>
+                          <span>{currentUser.email}</span>
+                        </div>
+                      </div>
+
+                      <div className="account-menu-divider"></div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+
+                          navigate("/profile");
+                        }}
+                      >
+                        <User size={16} />
+                        حسابي
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+
+                          navigate("/my-products");
+                        }}
+                      >
+                        <Package size={16} />
+                        منتجاتي
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+
+                          navigate("/messages");
+                        }}
+                      >
+                        <MessageCircle size={16} />
+                        الرسائل
+                      </button>
+
+                      <button
+                        type="button"
+                        className="logout-button"
+                        onClick={handleLogout}
+                      >
+                        <LogOut size={16} />
+                        تسجيل الخروج
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="login-nav-button"
+                  onClick={() => navigate("/login")}
+                >
+                  <LogIn size={17} />
+
+                  <span>تسجيل الدخول</span>
+                </button>
               )}
             </div>
           </div>
