@@ -24,7 +24,11 @@ import {
 function ForgotPassword() {
   const navigate = useNavigate();
 
+  /* STEP */
+
   const [step, setStep] = useState("email");
+
+  /* FORM */
 
   const [email, setEmail] = useState("");
 
@@ -39,6 +43,8 @@ function ForgotPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -66,12 +72,20 @@ function ForgotPassword() {
   const handleEmailSubmit = (e) => {
     e.preventDefault();
 
+    if (isLoading) {
+      return;
+    }
+
     const trimmedEmail = email.trim().toLowerCase();
 
     const newErrors = {};
 
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!trimmedEmail) {
       newErrors.email = "يرجى إدخال البريد الإلكتروني";
+    } else if (!emailPattern.test(trimmedEmail)) {
+      newErrors.email = "البريد الإلكتروني غير صحيح";
     }
 
     setErrors(newErrors);
@@ -83,7 +97,9 @@ function ForgotPassword() {
     const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
 
     const userExists = users.some(
-      (user) => user.email?.trim().toLowerCase() === trimmedEmail,
+      (user) =>
+        typeof user?.email === "string" &&
+        user.email.trim().toLowerCase() === trimmedEmail,
     );
 
     if (!userExists) {
@@ -103,6 +119,8 @@ function ForgotPassword() {
 
       setErrors({});
 
+      setEmail(trimmedEmail);
+
       setStep("password");
 
       showToast("تم العثور على الحساب", "success");
@@ -113,6 +131,10 @@ function ForgotPassword() {
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
 
     const newErrors = {};
 
@@ -136,8 +158,37 @@ function ForgotPassword() {
 
     const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    /* CHECK ACCOUNT */
+
+    const userExists = users.some(
+      (user) =>
+        typeof user?.email === "string" &&
+        user.email.trim().toLowerCase() === normalizedEmail,
+    );
+
+    if (!userExists) {
+      showToast("لم يعد الحساب موجودًا", "error");
+
+      setErrors({});
+
+      setPassword("");
+
+      setConfirmPassword("");
+
+      setStep("email");
+
+      return;
+    }
+
+    /* UPDATE PASSWORD */
+
     const updatedUsers = users.map((user) => {
-      if (user.email?.trim().toLowerCase() === email.trim().toLowerCase()) {
+      const userEmail =
+        typeof user?.email === "string" ? user.email.trim().toLowerCase() : "";
+
+      if (userEmail === normalizedEmail) {
         return {
           ...user,
           password,
@@ -149,17 +200,19 @@ function ForgotPassword() {
 
     setIsLoading(true);
 
-    localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
-
-    showToast("تم تغيير كلمة المرور بنجاح ✓", "success");
-
     setTimeout(() => {
+      localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
+
       setIsLoading(false);
 
-      navigate("/login", {
-        replace: true,
-      });
-    }, 900);
+      showToast("تم تغيير كلمة المرور بنجاح ✓", "success");
+
+      setTimeout(() => {
+        navigate("/login", {
+          replace: true,
+        });
+      }, 900);
+    }, 700);
   };
 
   return (
@@ -242,6 +295,8 @@ function ForgotPassword() {
             </div>
 
             {step === "email" ? (
+              /* EMAIL FORM */
+
               <form
                 className="auth-form"
                 onSubmit={handleEmailSubmit}
@@ -268,6 +323,7 @@ function ForgotPassword() {
                       }}
                       placeholder="example@email.com"
                       autoComplete="email"
+                      disabled={isLoading}
                     />
                   </div>
 
@@ -297,11 +353,15 @@ function ForgotPassword() {
                 </button>
               </form>
             ) : (
+              /* PASSWORD FORM */
+
               <form
                 className="auth-form"
                 onSubmit={handlePasswordSubmit}
                 noValidate
               >
+                {/* PASSWORD */}
+
                 <div className="auth-field">
                   <label htmlFor="password">كلمة المرور الجديدة</label>
 
@@ -326,15 +386,17 @@ function ForgotPassword() {
                       }}
                       placeholder="أدخل كلمة المرور الجديدة"
                       autoComplete="new-password"
+                      disabled={isLoading}
                     />
 
                     <button
                       type="button"
                       className="auth-password-toggle"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowPassword((current) => !current)}
                       aria-label={
                         showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"
                       }
+                      disabled={isLoading}
                     >
                       {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
@@ -344,6 +406,8 @@ function ForgotPassword() {
                     <span className="auth-error">{errors.password}</span>
                   )}
                 </div>
+
+                {/* CONFIRM PASSWORD */}
 
                 <div className="auth-field">
                   <label htmlFor="confirmPassword">تأكيد كلمة المرور</label>
@@ -369,19 +433,21 @@ function ForgotPassword() {
                       }}
                       placeholder="أعد إدخال كلمة المرور"
                       autoComplete="new-password"
+                      disabled={isLoading}
                     />
 
                     <button
                       type="button"
                       className="auth-password-toggle"
                       onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
+                        setShowConfirmPassword((current) => !current)
                       }
                       aria-label={
                         showConfirmPassword
                           ? "إخفاء كلمة المرور"
                           : "إظهار كلمة المرور"
                       }
+                      disabled={isLoading}
                     >
                       {showConfirmPassword ? (
                         <EyeOff size={17} />
@@ -395,6 +461,8 @@ function ForgotPassword() {
                     <span className="auth-error">{errors.confirmPassword}</span>
                   )}
                 </div>
+
+                {/* SUBMIT */}
 
                 <button
                   type="submit"
@@ -417,6 +485,8 @@ function ForgotPassword() {
                 </button>
               </form>
             )}
+
+            {/* LOGIN */}
 
             <p className="auth-login">
               تذكرت كلمة المرور؟

@@ -109,10 +109,10 @@ function InfoPage() {
       <div className="info-page__container">
         <button
           type="button"
-          className="info-page__back"
+          className="info-back-button"
           onClick={() => navigate("/")}
         >
-          <ArrowRight size={18} />
+          <ArrowRight size={19} />
           <span>العودة للرئيسية</span>
         </button>
 

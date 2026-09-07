@@ -2,12 +2,22 @@ import "./LatestProducts.css";
 
 import { defaultProducts } from "../data/products";
 
-import { Heart, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import {
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  ShoppingCart,
+  Check,
+} from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
+
 import { useRef, useState } from "react";
 
 import Toast from "../components/Toast";
+
+import { addToCart, animateProductToCart, getCart } from "../utils/cart";
 
 function LatestProducts() {
   const navigate = useNavigate();
@@ -31,6 +41,14 @@ function LatestProducts() {
     }
 
     return allFavorites[userId] || [];
+  });
+
+  const [cartIds, setCartIds] = useState(() => {
+    if (!userId) {
+      return [];
+    }
+
+    return getCart(userId);
   });
 
   const [toast, setToast] = useState({
@@ -66,6 +84,8 @@ function LatestProducts() {
     navigate(`/products/${id}`);
   };
 
+  /* OWNER */
+
   const isOwner = (product) => {
     if (!currentUser || !product?.sellerId) {
       return false;
@@ -73,6 +93,60 @@ function LatestProducts() {
 
     return Number(product.sellerId) === Number(currentUser.id);
   };
+
+  /* CART */
+
+  const isInCart = (id) => {
+    return cartIds.some((item) => Number(item) === Number(id));
+  };
+
+  const handleAddToCart = (e, product) => {
+    e.stopPropagation();
+
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً لإضافة المنتجات للسلة", "info");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: window.location.pathname + window.location.search,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
+    if (isOwner(product)) {
+      showToast("لا يمكنك إضافة منتجك إلى السلة", "info");
+
+      return;
+    }
+
+    if (isInCart(product.id)) {
+      navigate("/cart");
+      return;
+    }
+
+    const productCard = e.currentTarget.closest(".product-card");
+
+    const productImage = productCard?.querySelector(".product-card__image img");
+
+    const result = addToCart(userId, product.id);
+
+    if (!result.added) {
+      navigate("/cart");
+      return;
+    }
+
+    setCartIds(result.cart);
+
+    animateProductToCart(productImage);
+
+    showToast("تمت إضافة المنتج للسلة ✓", "success");
+  };
+
+  /* FAVORITES */
 
   const isFavorite = (id) => {
     return favorites.some((item) => Number(item) === Number(id));
@@ -123,6 +197,8 @@ function LatestProducts() {
       return updated;
     });
   };
+
+  /* SLIDER */
 
   const scrollSlider = (direction) => {
     if (!sliderRef.current) {
@@ -241,6 +317,28 @@ function LatestProducts() {
                     <span>{product.location}</span>
                   </div>
                 </div>
+
+                {!isOwner(product) && (
+                  <button
+                    type="button"
+                    className={`product-card__cart ${
+                      isInCart(product.id) ? "in-cart" : ""
+                    }`}
+                    onClick={(e) => handleAddToCart(e, product)}
+                  >
+                    {isInCart(product.id) ? (
+                      <>
+                        <Check size={16} />
+                        عرض السلة
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart size={16} />
+                        أضف للسلة
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </article>
           ))}

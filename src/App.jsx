@@ -14,16 +14,55 @@ import InfoPage from "./pages/InfoPage";
 import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
-import ForgotPassword from "./pages/ForgotPassword";
+import Cart from "./pages/Cart";
 
 function App() {
   return (
     <Routes>
+      {/* PUBLIC */}
+
       <Route path="/" element={<Home />} />
+
       <Route path="/products" element={<Products />} />
+
       <Route path="/products/:id" element={<ProductDetails />} />
+
+      <Route path="/info/:page" element={<InfoPage />} />
+
+      {/* GUEST ONLY */}
+
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+
+      {/* PROTECTED */}
+
       <Route
         path="/sell"
         element={
@@ -32,6 +71,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/favorites"
         element={
@@ -40,6 +80,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/messages"
         element={
@@ -48,6 +89,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/messages/:id"
         element={
@@ -56,6 +98,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/profile"
         element={
@@ -64,6 +107,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/my-products"
         element={
@@ -72,6 +116,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/edit-product/:id"
         element={
@@ -80,30 +125,17 @@ function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="/info/:page" element={<InfoPage />} />
+
+      {/* NOT FOUND */}
+
       <Route path="*" element={<NotFound />} />
+
       <Route
-        path="/register"
+        path="/cart"
         element={
-          <PublicRoute>
-            <Register />
-          </PublicRoute>
-        }
-      />{" "}
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />{" "}
-      <Route
-        path="/forgot-password"
-        element={
-          <PublicRoute>
-            <ForgotPassword />
-          </PublicRoute>
+          <ProtectedRoute>
+            <Cart />
+          </ProtectedRoute>
         }
       />
     </Routes>

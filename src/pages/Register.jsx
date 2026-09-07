@@ -1,8 +1,11 @@
 import "./Auth.css";
+
 import authMarketplace from "../assets/auth-marketplace.png";
+
 import Toast from "../components/Toast";
 
 import { Link, useNavigate } from "react-router-dom";
+
 import { useState } from "react";
 
 import {
@@ -19,10 +22,13 @@ import {
 } from "lucide-react";
 
 import { FcGoogle } from "react-icons/fc";
+
 import { FaFacebookF, FaApple } from "react-icons/fa";
 
 function Register() {
   const navigate = useNavigate();
+
+  /* FORM */
 
   const [form, setForm] = useState({
     name: "",
@@ -40,6 +46,8 @@ function Register() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -62,6 +70,8 @@ function Register() {
     }, 2200);
   };
 
+  /* CHANGE */
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -76,6 +86,8 @@ function Register() {
     }));
   };
 
+  /* PASSWORD STRENGTH */
+
   const getPasswordStrength = () => {
     const password = form.password;
 
@@ -89,12 +101,29 @@ function Register() {
 
     let score = 0;
 
-    if (password.length >= 6) score++;
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
+    if (password.length >= 6) {
+      score++;
+    }
+
+    if (password.length >= 8) {
+      score++;
+    }
+
+    if (/[A-Z]/.test(password)) {
+      score++;
+    }
+
+    if (/[a-z]/.test(password)) {
+      score++;
+    }
+
+    if (/[0-9]/.test(password)) {
+      score++;
+    }
+
+    if (/[^A-Za-z0-9]/.test(password)) {
+      score++;
+    }
 
     if (score <= 2) {
       return {
@@ -121,11 +150,14 @@ function Register() {
 
   const passwordStrength = getPasswordStrength();
 
+  /* VALIDATION */
+
   const validateForm = () => {
     const newErrors = {};
 
     const name = form.name.trim();
-    const email = form.email.trim();
+
+    const email = form.email.trim().toLowerCase();
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -162,8 +194,14 @@ function Register() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /* REGISTER */
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -173,7 +211,13 @@ function Register() {
 
     const email = form.email.trim().toLowerCase();
 
-    const userExists = users.some((user) => user.email.toLowerCase() === email);
+    /* DUPLICATE EMAIL */
+
+    const userExists = users.some(
+      (user) =>
+        typeof user?.email === "string" &&
+        user.email.trim().toLowerCase() === email,
+    );
 
     if (userExists) {
       setErrors((current) => ({
@@ -188,11 +232,17 @@ function Register() {
 
     setIsLoading(true);
 
+    /* NEW USER */
+
     const newUser = {
       id: Date.now(),
+
       name: form.name.trim(),
+
       email,
+
       password: form.password,
+
       createdAt: new Date().toISOString(),
     };
 
@@ -285,6 +335,8 @@ function Register() {
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
+              {/* NAME */}
+
               <div className="auth-field">
                 <label htmlFor="name">الاسم الكامل</label>
 
@@ -303,6 +355,7 @@ function Register() {
                     onChange={handleChange}
                     placeholder="مثال: محمد أحمد"
                     autoComplete="name"
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -310,6 +363,8 @@ function Register() {
                   <span className="auth-error">{errors.name}</span>
                 )}
               </div>
+
+              {/* EMAIL */}
 
               <div className="auth-field">
                 <label htmlFor="email">البريد الإلكتروني</label>
@@ -329,6 +384,7 @@ function Register() {
                     onChange={handleChange}
                     placeholder="example@email.com"
                     autoComplete="email"
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -336,6 +392,8 @@ function Register() {
                   <span className="auth-error">{errors.email}</span>
                 )}
               </div>
+
+              {/* PASSWORD */}
 
               <div className="auth-field">
                 <label htmlFor="password">كلمة المرور</label>
@@ -355,15 +413,17 @@ function Register() {
                     onChange={handleChange}
                     placeholder="أدخل كلمة المرور"
                     autoComplete="new-password"
+                    disabled={isLoading}
                   />
 
                   <button
                     type="button"
                     className="auth-password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((current) => !current)}
                     aria-label={
                       showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"
                     }
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
@@ -399,6 +459,8 @@ function Register() {
                 )}
               </div>
 
+              {/* CONFIRM PASSWORD */}
+
               <div className="auth-field">
                 <label htmlFor="confirmPassword">تأكيد كلمة المرور</label>
 
@@ -417,17 +479,21 @@ function Register() {
                     onChange={handleChange}
                     placeholder="أعد إدخال كلمة المرور"
                     autoComplete="new-password"
+                    disabled={isLoading}
                   />
 
                   <button
                     type="button"
                     className="auth-password-toggle"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    onClick={() =>
+                      setShowConfirmPassword((current) => !current)
+                    }
                     aria-label={
                       showConfirmPassword
                         ? "إخفاء كلمة المرور"
                         : "إظهار كلمة المرور"
                     }
+                    disabled={isLoading}
                   >
                     {showConfirmPassword ? (
                       <EyeOff size={17} />
@@ -442,11 +508,14 @@ function Register() {
                 )}
               </div>
 
+              {/* TERMS */}
+
               <div>
                 <label className="auth-terms">
                   <input
                     type="checkbox"
                     checked={acceptedTerms}
+                    disabled={isLoading}
                     onChange={(e) => {
                       setAcceptedTerms(e.target.checked);
 
@@ -470,6 +539,8 @@ function Register() {
                 )}
               </div>
 
+              {/* SUBMIT */}
+
               <button
                 type="submit"
                 className="auth-submit"
@@ -491,13 +562,18 @@ function Register() {
               </button>
             </form>
 
+            {/* DIVIDER */}
+
             <div className="auth-divider">
               <span>أو باستخدام</span>
             </div>
 
+            {/* SOCIALS */}
+
             <div className="auth-socials">
               <button type="button">
                 <FcGoogle className="social-icon google-icon" />
+
                 <span>Google</span>
               </button>
 
@@ -511,9 +587,12 @@ function Register() {
 
               <button type="button">
                 <FaApple className="social-icon apple-icon" />
+
                 <span>Apple</span>
               </button>
             </div>
+
+            {/* LOGIN */}
 
             <p className="auth-login">
               لديك حساب بالفعل؟

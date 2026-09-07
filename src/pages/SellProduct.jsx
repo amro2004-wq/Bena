@@ -17,7 +17,13 @@ import {
 
 function SellProduct() {
   const navigate = useNavigate();
+
+  /* USER */
+
   const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  /* FORM */
+
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -28,6 +34,8 @@ function SellProduct() {
   });
 
   const [imagePreview, setImagePreview] = useState("");
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -50,17 +58,35 @@ function SellProduct() {
     }, 2200);
   };
 
+  /* CHANGE */
+
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }));
   };
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
+  /* IMAGE */
 
-    if (!file) return;
+  const handleImage = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      showToast("صيغة الصورة غير مدعومة، استخدم PNG أو JPG أو WEBP", "error");
+
+      e.target.value = "";
+
+      return;
+    }
 
     if (file.size > 1500000) {
       showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
@@ -76,14 +102,40 @@ function SellProduct() {
       setImagePreview(reader.result);
     };
 
+    reader.onerror = () => {
+      showToast("حدث خطأ أثناء قراءة الصورة", "error");
+
+      e.target.value = "";
+    };
+
     reader.readAsDataURL(file);
   };
+
+  /* SUBMIT */
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    /* CHECK USER */
+
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً لنشر منتج", "error");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: "/sell",
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
     const { name, category, condition, price, location, description } =
       formData;
+
+    /* REQUIRED FIELDS */
 
     if (
       !name.trim() ||
@@ -99,17 +151,46 @@ function SellProduct() {
       return;
     }
 
+    /* PRICE */
+
+    const numericPrice = Number(price);
+
+    if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+      showToast("يرجى إدخال سعر صحيح للمنتج", "error");
+
+      return;
+    }
+
+    /* CONDITION */
+
+    const allowedConditions = ["جديد", "ممتاز", "مستخدم"];
+
+    if (!allowedConditions.includes(condition)) {
+      showToast("يرجى اختيار حالة صحيحة للمنتج", "error");
+
+      return;
+    }
+
+    /* PRODUCTS */
+
     const savedProducts =
       JSON.parse(localStorage.getItem("benaProducts")) || [];
 
-    const newProduct = {
-      id: Date.now(),
+    const now = new Date().toISOString();
 
-      sellerId: currentUser.id,
+    const productId = Date.now();
+
+    const newProduct = {
+      id: productId,
+
+      sellerId: Number(currentUser.id),
+
       sellerName: currentUser.name,
 
       name: name.trim(),
+
       category,
+
       condition,
 
       conditionClass:
@@ -119,24 +200,31 @@ function SellProduct() {
             ? "excellent"
             : "used",
 
-      price: Number(price),
+      price: numericPrice,
+
       location,
+
       description: description.trim(),
+
       image: imagePreview,
 
-      createdAt: new Date().toISOString(),
+      createdAt: now,
     };
+
+    /* SAVE PRODUCT */
 
     localStorage.setItem(
       "benaProducts",
       JSON.stringify([newProduct, ...savedProducts]),
     );
 
+    /* NOTIFICATION */
+
     const savedNotifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
     const newNotification = {
-      id: Date.now() + 1,
+      id: productId + 1,
 
       userId: Number(currentUser.id),
 
@@ -146,7 +234,7 @@ function SellProduct() {
 
       text: `تم نشر منتج "${newProduct.name}" بنجاح على بينا.`,
 
-      createdAt: new Date().toISOString(),
+      createdAt: now,
 
       read: false,
 
@@ -190,9 +278,12 @@ function SellProduct() {
         <form className="sell-form" onSubmit={handleSubmit}>
           <div className="sell-form-grid">
             <div className="sell-form-main">
+              {/* IMAGE */}
+
               <div className="sell-card">
                 <div className="sell-card-title">
                   <ImagePlus size={19} />
+
                   <h3>صورة المنتج</h3>
                 </div>
 
@@ -205,21 +296,24 @@ function SellProduct() {
 
                       <strong>اضغط لإضافة صورة</strong>
 
-                      <span>PNG أو JPG - بحد أقصى 1.5MB</span>
+                      <span>PNG أو JPG أو WEBP - بحد أقصى 1.5MB</span>
                     </div>
                   )}
 
                   <input
                     type="file"
-                    accept="image/png, image/jpeg, image/webp"
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={handleImage}
                   />
                 </label>
               </div>
 
+              {/* PRODUCT INFO */}
+
               <div className="sell-card">
                 <div className="sell-card-title">
                   <Tag size={19} />
+
                   <h3>معلومات المنتج</h3>
                 </div>
 
@@ -334,10 +428,13 @@ function SellProduct() {
               </div>
             </div>
 
+            {/* SIDE */}
+
             <aside className="sell-form-side">
               <div className="sell-card">
                 <div className="sell-card-title">
                   <CircleDollarSign size={19} />
+
                   <h3>السعر والموقع</h3>
                 </div>
 
@@ -349,6 +446,7 @@ function SellProduct() {
                       type="number"
                       name="price"
                       min="1"
+                      step="1"
                       placeholder="0"
                       value={formData.price}
                       onChange={handleChange}
@@ -383,6 +481,8 @@ function SellProduct() {
                   </select>
                 </div>
               </div>
+
+              {/* TIP */}
 
               <div className="sell-help-card">
                 <PackageCheck size={22} />

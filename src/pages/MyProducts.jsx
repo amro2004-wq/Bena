@@ -117,7 +117,27 @@ function MyProducts() {
 
       localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
     }
+    /* DELETE CART */
 
+    const cartData = JSON.parse(localStorage.getItem("benaCart")) || {};
+
+    if (Array.isArray(cartData)) {
+      localStorage.setItem("benaCart", JSON.stringify({}));
+    } else {
+      const updatedCart = {};
+
+      Object.entries(cartData).forEach(([cartUserId, ids]) => {
+        updatedCart[cartUserId] = Array.isArray(ids)
+          ? ids.filter(
+              (cartProductId) => Number(cartProductId) !== Number(productId),
+            )
+          : [];
+      });
+
+      localStorage.setItem("benaCart", JSON.stringify(updatedCart));
+    }
+
+    window.dispatchEvent(new CustomEvent("bena-cart-updated"));
     /* DELETE CHATS */
 
     const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};

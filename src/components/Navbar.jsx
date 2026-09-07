@@ -19,6 +19,7 @@ import {
   LogOut,
   Package,
   User,
+  ShoppingCart,
 } from "lucide-react";
 
 import Toast from "../components/Toast";
@@ -44,6 +45,8 @@ function Navbar() {
   const [allNotifications, setAllNotifications] = useState(() => {
     return JSON.parse(localStorage.getItem("benaNotifications")) || [];
   });
+
+  const [cartCount, setCartCount] = useState(0);
 
   const [toast, setToast] = useState({
     show: false,
@@ -95,6 +98,39 @@ function Navbar() {
 
     setCurrentUser(savedUser);
   }, [location.pathname, location.search]);
+
+  /* CART COUNT */
+
+  useEffect(() => {
+    const updateCartCount = () => {
+      const savedUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+      if (!savedUser) {
+        setCartCount(0);
+        return;
+      }
+
+      const savedCart = JSON.parse(localStorage.getItem("benaCart")) || {};
+
+      const cartObject = Array.isArray(savedCart) ? {} : savedCart;
+
+      const userCart = cartObject[String(savedUser.id)] || [];
+
+      setCartCount(userCart.length);
+    };
+
+    updateCartCount();
+
+    window.addEventListener("bena-cart-updated", updateCartCount);
+
+    window.addEventListener("storage", updateCartCount);
+
+    return () => {
+      window.removeEventListener("bena-cart-updated", updateCartCount);
+
+      window.removeEventListener("storage", updateCartCount);
+    };
+  }, [currentUser]);
 
   /* NOTIFICATIONS OUTSIDE CLICK */
 
@@ -157,6 +193,10 @@ function Navbar() {
     localStorage.removeItem("benaCurrentUser");
 
     setCurrentUser(null);
+
+    setAllNotifications([]);
+
+    setCartCount(0);
 
     setShowAccountMenu(false);
 
@@ -415,6 +455,24 @@ function Navbar() {
               onClick={() => requireLogin("/favorites")}
             >
               <Heart size={22} strokeWidth={1.8} />
+            </button>
+
+            {/* CART */}
+
+            <button
+              id="bena-cart-target"
+              type="button"
+              className="nav-icon cart-nav-icon"
+              aria-label="سلة التسوق"
+              onClick={() => requireLogin("/cart")}
+            >
+              <ShoppingCart size={22} strokeWidth={1.8} />
+
+              {currentUser && cartCount > 0 && (
+                <span className="cart-count">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </button>
 
             <button

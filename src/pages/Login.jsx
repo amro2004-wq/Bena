@@ -1,8 +1,11 @@
 import "./Auth.css";
+
 import authMarketplace from "../assets/auth-marketplace.png";
+
 import Toast from "../components/Toast";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
+
 import { useState } from "react";
 
 import {
@@ -18,21 +21,36 @@ import {
 } from "lucide-react";
 
 import { FcGoogle } from "react-icons/fc";
+
 import { FaFacebookF, FaApple } from "react-icons/fa";
 
 function Login() {
   const navigate = useNavigate();
+
   const location = useLocation();
 
-  const redirectPath = location.state?.from || "/";
+  /* REDIRECT */
+
+  const redirectPath =
+    typeof location.state?.from === "string" &&
+    location.state.from.startsWith("/")
+      ? location.state.from
+      : "/";
+
+  /* FORM */
+
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
 
   const [errors, setErrors] = useState({});
+
   const [showPassword, setShowPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -55,6 +73,8 @@ function Login() {
     }, 2200);
   };
 
+  /* CHANGE */
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -69,10 +89,12 @@ function Login() {
     }));
   };
 
+  /* VALIDATION */
+
   const validateForm = () => {
     const newErrors = {};
 
-    const email = form.email.trim();
+    const email = form.email.trim().toLowerCase();
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -91,8 +113,14 @@ function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /* LOGIN */
+
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (isLoading) {
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -102,7 +130,13 @@ function Login() {
 
     const email = form.email.trim().toLowerCase();
 
-    const user = users.find((item) => item.email.toLowerCase() === email);
+    const user = users.find(
+      (item) =>
+        typeof item?.email === "string" &&
+        item.email.trim().toLowerCase() === email,
+    );
+
+    /* USER NOT FOUND */
 
     if (!user) {
       setErrors((current) => ({
@@ -114,6 +148,8 @@ function Login() {
 
       return;
     }
+
+    /* WRONG PASSWORD */
 
     if (user.password !== form.password) {
       setErrors((current) => ({
@@ -127,6 +163,8 @@ function Login() {
     }
 
     setIsLoading(true);
+
+    /* CURRENT USER */
 
     const currentUser = {
       id: user.id,
@@ -224,6 +262,8 @@ function Login() {
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
+              {/* EMAIL */}
+
               <div className="auth-field">
                 <label htmlFor="email">البريد الإلكتروني</label>
 
@@ -242,6 +282,7 @@ function Login() {
                     onChange={handleChange}
                     placeholder="example@email.com"
                     autoComplete="email"
+                    disabled={isLoading}
                   />
                 </div>
 
@@ -249,6 +290,8 @@ function Login() {
                   <span className="auth-error">{errors.email}</span>
                 )}
               </div>
+
+              {/* PASSWORD */}
 
               <div className="auth-field">
                 <div className="auth-label-row">
@@ -274,15 +317,17 @@ function Login() {
                     onChange={handleChange}
                     placeholder="أدخل كلمة المرور"
                     autoComplete="current-password"
+                    disabled={isLoading}
                   />
 
                   <button
                     type="button"
                     className="auth-password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((current) => !current)}
                     aria-label={
                       showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"
                     }
+                    disabled={isLoading}
                   >
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
@@ -292,6 +337,8 @@ function Login() {
                   <span className="auth-error">{errors.password}</span>
                 )}
               </div>
+
+              {/* SUBMIT */}
 
               <button
                 type="submit"
@@ -314,13 +361,18 @@ function Login() {
               </button>
             </form>
 
+            {/* DIVIDER */}
+
             <div className="auth-divider">
               <span>أو باستخدام</span>
             </div>
 
+            {/* SOCIAL */}
+
             <div className="auth-socials">
               <button type="button">
                 <FcGoogle className="social-icon google-icon" />
+
                 <span>Google</span>
               </button>
 
@@ -338,6 +390,8 @@ function Login() {
                 <span>Apple</span>
               </button>
             </div>
+
+            {/* REGISTER */}
 
             <p className="auth-login">
               ما عندك حساب؟

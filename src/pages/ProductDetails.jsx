@@ -3,6 +3,7 @@ import "./ProductDetails.css";
 import { defaultProducts } from "../data/products";
 
 import { useState } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -15,18 +16,27 @@ import {
   Share2,
   UserRound,
   Pencil,
+  ShoppingCart,
+  Check,
 } from "lucide-react";
 
 import Toast from "../components/Toast";
+import Navbar from "../components/Navbar";
+
+import { addToCart, animateProductToCart, getCart } from "../utils/cart";
 
 function ProductDetails() {
   const { id } = useParams();
 
   const navigate = useNavigate();
 
+  /* USER */
+
   const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
 
   const userId = currentUser ? String(currentUser.id) : null;
+
+  /* PRODUCTS */
 
   const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
 
@@ -34,11 +44,47 @@ function ProductDetails() {
 
   const product = products.find((item) => Number(item.id) === Number(id));
 
+  /* SELLER */
+
+  const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+
+  const seller = product?.sellerId
+    ? users.find((user) => Number(user.id) === Number(product.sellerId))
+    : null;
+
+  const sellerName = seller?.name || product?.sellerName || "بائع على بينا";
+
+  /* OWNER */
+
+  const isOwner =
+    product?.sellerId &&
+    currentUser &&
+    Number(product.sellerId) === Number(currentUser.id);
+
+  /* TOAST */
+
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
+
+  const showToast = (message, type = "success") => {
+    setToast({
+      show: true,
+      message,
+      type,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        show: false,
+      }));
+    }, 2200);
+  };
+
+  /* FAVORITE */
 
   const [isFavorite, setIsFavorite] = useState(() => {
     if (!userId) {
@@ -57,25 +103,21 @@ function ProductDetails() {
     return userFavorites.some((item) => Number(item) === Number(id));
   });
 
-  const showToast = (message, type = "success") => {
-    setToast({
-      show: true,
-      message,
-      type,
-    });
+  /* CART */
 
-    setTimeout(() => {
-      setToast((current) => ({
-        ...current,
-        show: false,
-      }));
-    }, 2200);
-  };
+  const [cartIds, setCartIds] = useState(() => {
+    if (!userId) {
+      return [];
+    }
 
-  const isOwner =
-    product?.sellerId &&
-    currentUser &&
-    Number(product.sellerId) === Number(currentUser.id);
+    return getCart(userId);
+  });
+
+  const isInCart = product
+    ? cartIds.some((item) => Number(item) === Number(product.id))
+    : false;
+
+  /* REQUIRE LOGIN */
 
   const requireLogin = (callback) => {
     if (!currentUser) {
@@ -95,8 +137,50 @@ function ProductDetails() {
     callback();
   };
 
+  /* ADD TO CART */
+
+  const handleAddToCart = () => {
+    requireLogin(() => {
+      if (!product) {
+        return;
+      }
+
+      if (isOwner) {
+        showToast("لا يمكنك إضافة منتجك إلى السلة", "info");
+
+        return;
+      }
+
+      if (isInCart) {
+        navigate("/cart");
+        return;
+      }
+
+      const productImage = document.querySelector(".product-main-image img");
+
+      const result = addToCart(userId, product.id);
+
+      if (!result.added) {
+        navigate("/cart");
+        return;
+      }
+
+      setCartIds(result.cart);
+
+      animateProductToCart(productImage);
+
+      showToast("تمت إضافة المنتج للسلة ✓", "success");
+    });
+  };
+
+  /* TOGGLE FAVORITE */
+
   const toggleFavorite = () => {
     requireLogin(() => {
+      if (!product) {
+        return;
+      }
+
       if (isOwner) {
         showToast("هذا المنتج تابع لك", "info");
 
@@ -120,7 +204,6 @@ function ProductDetails() {
 
       const updatedAllFavorites = {
         ...favoritesObject,
-
         [userId]: updatedUserFavorites,
       };
 
@@ -138,10 +221,22 @@ function ProductDetails() {
     });
   };
 
+  /* MESSAGE SELLER */
+
   const handleMessageSeller = () => {
     requireLogin(() => {
+      if (!product) {
+        return;
+      }
+
       if (isOwner) {
         showToast("هذا المنتج تابع لك", "info");
+
+        return;
+      }
+
+      if (!product.sellerId) {
+        showToast("لا يمكن مراسلة بائع هذا المنتج حاليًا", "info");
 
         return;
       }
@@ -149,6 +244,8 @@ function ProductDetails() {
       navigate(`/messages/${product.id}`);
     });
   };
+
+  /* SHARE */
 
   const handleShare = async () => {
     try {
@@ -160,171 +257,219 @@ function ProductDetails() {
     }
   };
 
+  /* NOT FOUND */
+
   if (!product) {
     return (
-      <div className="product-not-found" dir="rtl">
-        <h2>المنتج غير موجود</h2>
+      <>
+        <Navbar />
 
-        <button type="button" onClick={() => navigate("/products")}>
-          العودة للمنتجات
-        </button>
-      </div>
+        <div className="product-not-found" dir="rtl">
+          <h2>المنتج غير موجود</h2>
+
+          <button type="button" onClick={() => navigate("/products")}>
+            العودة للمنتجات
+          </button>
+        </div>
+      </>
     );
   }
 
   return (
-    <main className="product-details-page" dir="rtl">
-      <Toast show={toast.show} message={toast.message} type={toast.type} />
+    <>
+      <Navbar />
 
-      <div className="product-details-container">
-        <button
-          type="button"
-          className="product-back-btn"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowRight size={18} />
-          العودة
-        </button>
+      <main className="product-details-page" dir="rtl">
+        <Toast show={toast.show} message={toast.message} type={toast.type} />
 
-        <div className="product-details-grid">
-          <div className="product-gallery">
-            <div className="product-main-image">
-              <img src={product.image} alt={product.name} />
+        <div className="product-details-container">
+          <button
+            type="button"
+            className="product-back-btn"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowRight size={18} />
+            العودة
+          </button>
 
-              <span className={`details-condition ${product.conditionClass}`}>
-                {product.condition}
-              </span>
+          <div className="product-details-grid">
+            {/* IMAGE */}
 
-              {!isOwner && (
-                <button
-                  type="button"
-                  className="details-favorite"
-                  aria-label={isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"}
-                  onClick={toggleFavorite}
-                >
-                  <Heart
-                    size={21}
-                    fill={isFavorite ? "currentColor" : "none"}
-                  />
-                </button>
-              )}
-            </div>
-          </div>
+            <div className="product-gallery">
+              <div className="product-main-image">
+                <img src={product.image} alt={product.name} />
 
-          <div className="product-info">
-            <div className="product-info-top">
-              <div>
-                <span className="product-category">
-                  {product.category || "أخرى"}
+                <span className={`details-condition ${product.conditionClass}`}>
+                  {product.condition}
                 </span>
 
-                <h1>{product.name}</h1>
-              </div>
-
-              <button
-                type="button"
-                className="share-button"
-                aria-label="مشاركة"
-                onClick={handleShare}
-              >
-                <Share2 size={18} />
-              </button>
-            </div>
-
-            <div className="details-price">
-              <strong>{Number(product.price).toLocaleString()}</strong>
-
-              <span>₪</span>
-            </div>
-
-            <div className="details-meta">
-              <div>
-                <MapPin size={17} />
-
-                <span>{product.location}</span>
-              </div>
-
-              <div>
-                <Clock size={17} />
-
-                <span>نُشر حديثًا</span>
-              </div>
-            </div>
-
-            <div className="details-divider"></div>
-
-            <div className="product-description">
-              <h3>وصف المنتج</h3>
-
-              <p>{product.description || "لا يوجد وصف لهذا المنتج."}</p>
-            </div>
-
-            <div className="details-divider"></div>
-
-            <div className="seller-section">
-              <h3>معلومات البائع</h3>
-
-              <div className="seller-card">
-                <div className="seller-avatar">
-                  <UserRound size={25} />
-                </div>
-
-                <div className="seller-info">
-                  <strong>
-                    {isOwner
-                      ? `${currentUser.name} - أنت`
-                      : product.sellerName || "بائع على بينا"}
-                  </strong>
-
-                  <span>
-                    <ShieldCheck size={14} />
-
-                    {isOwner ? "هذا المنتج تابع لك" : "حساب على منصة بينا"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="product-actions">
-              {isOwner ? (
-                <button
-                  type="button"
-                  className="message-seller-btn"
-                  onClick={() => navigate(`/edit-product/${product.id}`)}
-                >
-                  <Pencil size={19} />
-                  تعديل المنتج
-                </button>
-              ) : (
-                <>
+                {!isOwner && (
                   <button
                     type="button"
-                    className="message-seller-btn"
-                    onClick={handleMessageSeller}
-                  >
-                    <MessageCircle size={19} />
-                    مراسلة البائع
-                  </button>
-
-                  <button
-                    type="button"
-                    className="favorite-product-btn"
+                    className="details-favorite"
+                    aria-label={
+                      isFavorite ? "إزالة من المفضلة" : "إضافة للمفضلة"
+                    }
                     onClick={toggleFavorite}
                   >
                     <Heart
-                      size={19}
+                      size={21}
                       fill={isFavorite ? "currentColor" : "none"}
                     />
-
-                    {isFavorite ? "تمت الإضافة للمفضلة" : "إضافة للمفضلة"}
                   </button>
-                </>
-              )}
+                )}
+              </div>
+            </div>
+
+            {/* INFO */}
+
+            <div className="product-info">
+              <div className="product-info-top">
+                <div>
+                  <span className="product-category">
+                    {product.category || "أخرى"}
+                  </span>
+
+                  <h1>{product.name}</h1>
+                </div>
+
+                <button
+                  type="button"
+                  className="share-button"
+                  aria-label="مشاركة"
+                  onClick={handleShare}
+                >
+                  <Share2 size={18} />
+                </button>
+              </div>
+
+              {/* PRICE */}
+
+              <div className="details-price">
+                <strong>{Number(product.price).toLocaleString()}</strong>
+
+                <span>₪</span>
+              </div>
+
+              {/* META */}
+
+              <div className="details-meta">
+                <div>
+                  <MapPin size={17} />
+
+                  <span>{product.location}</span>
+                </div>
+
+                <div>
+                  <Clock size={17} />
+
+                  <span>نُشر حديثًا</span>
+                </div>
+              </div>
+
+              <div className="details-divider"></div>
+
+              {/* DESCRIPTION */}
+
+              <div className="product-description">
+                <h3>وصف المنتج</h3>
+
+                <p>{product.description || "لا يوجد وصف لهذا المنتج."}</p>
+              </div>
+
+              <div className="details-divider"></div>
+
+              {/* SELLER */}
+
+              <div className="seller-section">
+                <h3>معلومات البائع</h3>
+
+                <div className="seller-card">
+                  <div className="seller-avatar">
+                    <UserRound size={25} />
+                  </div>
+
+                  <div className="seller-info">
+                    <strong>
+                      {isOwner ? `${currentUser.name} - أنت` : sellerName}
+                    </strong>
+
+                    <span>
+                      <ShieldCheck size={14} />
+
+                      {isOwner
+                        ? "هذا المنتج تابع لك"
+                        : product.sellerId
+                          ? "حساب على منصة بينا"
+                          : "منتج تجريبي على منصة بينا"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTIONS */}
+
+              <div className="product-actions">
+                {isOwner ? (
+                  <button
+                    type="button"
+                    className="message-seller-btn"
+                    onClick={() => navigate(`/edit-product/${product.id}`)}
+                  >
+                    <Pencil size={19} />
+                    تعديل المنتج
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={`details-cart-btn ${
+                        isInCart ? "in-cart" : ""
+                      }`}
+                      onClick={handleAddToCart}
+                    >
+                      {isInCart ? (
+                        <>
+                          <Check size={19} />
+                          عرض السلة
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart size={19} />
+                          أضف للسلة
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="message-seller-btn"
+                      onClick={handleMessageSeller}
+                    >
+                      <MessageCircle size={19} />
+                      مراسلة البائع
+                    </button>
+
+                    <button
+                      type="button"
+                      className="favorite-product-btn"
+                      onClick={toggleFavorite}
+                    >
+                      <Heart
+                        size={19}
+                        fill={isFavorite ? "currentColor" : "none"}
+                      />
+
+                      {isFavorite ? "تمت الإضافة للمفضلة" : "إضافة للمفضلة"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 

@@ -17,7 +17,11 @@ function Messages() {
 
   const messagesEndRef = useRef(null);
 
+  /* USER */
+
   const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+
+  /* PRODUCTS */
 
   const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
 
@@ -25,12 +29,20 @@ function Messages() {
 
   const product = products.find((item) => Number(item.id) === Number(id));
 
+  /* USERS */
+
   const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+
+  /* SELLER */
 
   const sellerId = product?.sellerId ? Number(product.sellerId) : null;
 
+  const seller = users.find((user) => Number(user.id) === Number(sellerId));
+
   const isSeller =
-    currentUser && sellerId && Number(currentUser.id) === sellerId;
+    currentUser && sellerId && Number(currentUser.id) === Number(sellerId);
+
+  /* BUYER */
 
   const buyerFromUrl = searchParams.get("buyer");
 
@@ -42,13 +54,23 @@ function Messages() {
       ? Number(currentUser.id)
       : null;
 
-  const conversationId = product && buyerId ? `${product.id}_${buyerId}` : null;
-
   const buyer = users.find((user) => Number(user.id) === Number(buyerId));
 
-  const seller = users.find((user) => Number(user.id) === Number(sellerId));
+  /* CONVERSATION */
+
+  const conversationId = product && buyerId ? `${product.id}_${buyerId}` : null;
+
+  const savedChats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+
+  const existingConversation = conversationId
+    ? savedChats[conversationId]
+    : null;
+
+  /* OTHER USER */
 
   const otherUser = isSeller ? buyer : seller;
+
+  /* STATE */
 
   const [message, setMessage] = useState("");
 
@@ -63,11 +85,15 @@ function Messages() {
       return;
     }
 
-    const savedChats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+    const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
 
-    const conversation = savedChats[conversationId];
+    const conversation = chats[conversationId];
 
-    if (conversation && Array.isArray(conversation.messages)) {
+    if (
+      conversation &&
+      !Array.isArray(conversation) &&
+      Array.isArray(conversation.messages)
+    ) {
       setMessages(conversation.messages);
     } else {
       setMessages([]);
@@ -84,17 +110,17 @@ function Messages() {
     const savedNotifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
+    let changed = false;
+
     const updatedNotifications = savedNotifications.map((notification) => {
       const belongsToUser =
-        !notification.userId ||
         Number(notification.userId) === Number(currentUser.id);
 
-      const sameConversation =
-        notification.conversationId === conversationId ||
-        notification.link === `/messages/${id}?buyer=${buyerId}` ||
-        notification.link === `/messages/${id}`;
+      const sameConversation = notification.conversationId === conversationId;
 
-      if (belongsToUser && sameConversation) {
+      if (belongsToUser && sameConversation && !notification.read) {
+        changed = true;
+
         return {
           ...notification,
           read: true,
@@ -104,11 +130,13 @@ function Messages() {
       return notification;
     });
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
-  }, [id, buyerId, conversationId, currentUser?.id]);
+    if (changed) {
+      localStorage.setItem(
+        "benaNotifications",
+        JSON.stringify(updatedNotifications),
+      );
+    }
+  }, [conversationId, currentUser?.id]);
 
   /* AUTO SCROLL */
 
@@ -127,11 +155,48 @@ function Messages() {
       return;
     }
 
+    if (!sellerId || !buyerId) {
+      return;
+    }
+
+    const currentUserId = Number(currentUser.id);
+
+    const userIsSeller = currentUserId === Number(sellerId);
+
+    const userIsBuyer = currentUserId === Number(buyerId);
+
+    if (!userIsSeller && !userIsBuyer) {
+      return;
+    }
+
+    /* VALIDATE BUYER */
+
+    if (!buyer) {
+      return;
+    }
+
+    /* VALIDATE SELLER */
+
+    if (!seller) {
+      return;
+    }
+
+    /*
+      Seller can only reply to an
+      already existing conversation.
+    */
+
+    if (isSeller && !existingConversation) {
+      return;
+    }
+
     const trimmedMessage = message.trim();
 
     if (!trimmedMessage) {
       return;
     }
+
+    const now = new Date().toISOString();
 
     const newMessage = {
       id: Date.now(),
@@ -140,45 +205,45 @@ function Messages() {
 
       senderId: Number(currentUser.id),
 
-      createdAt: new Date().toISOString(),
+      createdAt: now,
     };
 
     const updatedMessages = [...messages, newMessage];
 
     setMessages(updatedMessages);
 
-    const savedChats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+    const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
 
     const conversation = {
       id: conversationId,
 
       productId: Number(product.id),
 
-      sellerId,
+      sellerId: Number(sellerId),
 
-      buyerId,
+      buyerId: Number(buyerId),
 
       messages: updatedMessages,
 
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
-    savedChats[conversationId] = conversation;
+    chats[conversationId] = conversation;
 
-    localStorage.setItem("benaMessages", JSON.stringify(savedChats));
+    localStorage.setItem("benaMessages", JSON.stringify(chats));
 
     /* NOTIFICATION */
 
-    const receiverId = isSeller ? buyerId : sellerId;
+    const receiverId = isSeller ? Number(buyerId) : Number(sellerId);
 
-    if (receiverId) {
+    if (receiverId && receiverId !== Number(currentUser.id)) {
       const notifications =
         JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
       const notification = {
-        id: Date.now(),
+        id: Date.now() + 1,
 
-        userId: Number(receiverId),
+        userId: receiverId,
 
         conversationId,
 
@@ -192,7 +257,7 @@ function Messages() {
 
         read: false,
 
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       };
 
       localStorage.setItem(
@@ -203,6 +268,8 @@ function Messages() {
 
     setMessage("");
   };
+
+  /* PRODUCT NOT FOUND */
 
   if (!product) {
     return (
@@ -216,6 +283,43 @@ function Messages() {
     );
   }
 
+  /* DEMO PRODUCT */
+
+  if (!sellerId) {
+    return (
+      <div className="messages-not-found" dir="rtl">
+        <h2>لا يمكن بدء المحادثة</h2>
+
+        <p>لا يوجد بائع مرتبط بهذا المنتج حاليًا.</p>
+
+        <button
+          type="button"
+          onClick={() => navigate(`/products/${product.id}`)}
+        >
+          العودة للمنتج
+        </button>
+      </div>
+    );
+  }
+
+  /* SELLER NOT FOUND */
+
+  if (!seller) {
+    return (
+      <div className="messages-not-found" dir="rtl">
+        <h2>حساب البائع غير موجود</h2>
+
+        <p>لا يمكن فتح هذه المحادثة حاليًا.</p>
+
+        <button type="button" onClick={() => navigate("/messages")}>
+          العودة للرسائل
+        </button>
+      </div>
+    );
+  }
+
+  /* SELECT CONVERSATION */
+
   if (isSeller && !buyerId) {
     return (
       <div className="messages-not-found" dir="rtl">
@@ -225,6 +329,38 @@ function Messages() {
 
         <button type="button" onClick={() => navigate("/messages")}>
           عرض الرسائل
+        </button>
+      </div>
+    );
+  }
+
+  /* INVALID BUYER */
+
+  if (!buyer) {
+    return (
+      <div className="messages-not-found" dir="rtl">
+        <h2>المحادثة غير موجودة</h2>
+
+        <p>المستخدم المرتبط بهذه المحادثة غير موجود.</p>
+
+        <button type="button" onClick={() => navigate("/messages")}>
+          العودة للرسائل
+        </button>
+      </div>
+    );
+  }
+
+  /* SELLER INVALID CONVERSATION */
+
+  if (isSeller && !existingConversation) {
+    return (
+      <div className="messages-not-found" dir="rtl">
+        <h2>المحادثة غير موجودة</h2>
+
+        <p>لا توجد محادثة سابقة مع هذا المستخدم حول المنتج.</p>
+
+        <button type="button" onClick={() => navigate("/messages")}>
+          العودة للرسائل
         </button>
       </div>
     );
@@ -254,9 +390,7 @@ function Messages() {
               <div>
                 <h3>
                   {otherUser?.name ||
-                    (isSeller
-                      ? "مشتري على بينا"
-                      : product.sellerName || "بائع على بينا")}
+                    (isSeller ? "مشتري على بينا" : "بائع على بينا")}
                 </h3>
 
                 <span>

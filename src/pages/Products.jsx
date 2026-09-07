@@ -3,9 +3,13 @@ import "./Products.css";
 import { defaultProducts } from "../data/products";
 
 import { useMemo, useState } from "react";
+
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import Toast from "../components/Toast";
+import Navbar from "../components/Navbar";
+
+import { addToCart, animateProductToCart, getCart } from "../utils/cart";
 
 import {
   Search,
@@ -16,6 +20,8 @@ import {
   Trash2,
   TriangleAlert,
   X,
+  ShoppingCart,
+  Check,
 } from "lucide-react";
 
 const categories = [
@@ -90,6 +96,14 @@ function Products() {
     return allFavorites[userId] || [];
   });
 
+  const [cartIds, setCartIds] = useState(() => {
+    if (!userId) {
+      return [];
+    }
+
+    return getCart(userId);
+  });
+
   const [productToDelete, setProductToDelete] = useState(null);
 
   const [toast, setToast] = useState({
@@ -113,6 +127,8 @@ function Products() {
     }, 2200);
   };
 
+  /* OWNER */
+
   const isOwner = (product) => {
     if (!currentUser || !product?.sellerId) {
       return false;
@@ -120,6 +136,60 @@ function Products() {
 
     return Number(product.sellerId) === Number(currentUser.id);
   };
+
+  /* CART */
+
+  const isInCart = (id) => {
+    return cartIds.some((item) => Number(item) === Number(id));
+  };
+
+  const handleAddToCart = (e, product) => {
+    e.stopPropagation();
+
+    if (!currentUser) {
+      showToast("سجل دخولك أولاً لإضافة المنتجات للسلة", "info");
+
+      setTimeout(() => {
+        navigate("/login", {
+          state: {
+            from: window.location.pathname + window.location.search,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
+    if (isOwner(product)) {
+      showToast("لا يمكنك إضافة منتجك إلى السلة", "info");
+
+      return;
+    }
+    if (isInCart(product.id)) {
+      navigate("/cart");
+      return;
+    }
+
+    const productCard = e.currentTarget.closest(".all-product-card");
+
+    const productImage = productCard?.querySelector(".all-product-image img");
+
+    const result = addToCart(userId, product.id);
+
+    if (!result.added) {
+      showToast("المنتج موجود في السلة بالفعل", "info");
+
+      return;
+    }
+
+    setCartIds(result.cart);
+
+    animateProductToCart(productImage);
+
+    showToast("تمت إضافة المنتج للسلة ✓", "success");
+  };
+
+  /* DELETE MODAL */
 
   const openDeleteModal = (product) => {
     if (!isOwner(product)) {
@@ -134,6 +204,8 @@ function Products() {
   const closeDeleteModal = () => {
     setProductToDelete(null);
   };
+
+  /* FILTER PRODUCTS */
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -193,6 +265,8 @@ function Products() {
     return result;
   }, [savedProducts, search, category, condition, location, sort]);
 
+  /* FAVORITES */
+
   const isFavorite = (id) => {
     return favorites.some((item) => Number(item) === Number(id));
   };
@@ -243,6 +317,8 @@ function Products() {
     });
   };
 
+  /* DELETE PRODUCT */
+
   const deleteProduct = () => {
     if (!productToDelete) {
       return;
@@ -268,7 +344,7 @@ function Products() {
 
     localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
 
-    /* DELETE FAVORITE */
+    /* DELETE FAVORITES */
 
     const allFavorites =
       JSON.parse(localStorage.getItem("benaFavorites")) || {};
@@ -296,24 +372,79 @@ function Products() {
       setFavorites([]);
     }
 
-    /* DELETE CHAT */
+    /* DELETE CART */
+
+    const allCarts = JSON.parse(localStorage.getItem("benaCart")) || {};
+
+    if (!Array.isArray(allCarts)) {
+      const updatedAllCarts = {};
+
+      Object.entries(allCarts).forEach(([cartUserId, ids]) => {
+        updatedAllCarts[cartUserId] = Array.isArray(ids)
+          ? ids.filter(
+              (cartProductId) => Number(cartProductId) !== Number(productId),
+            )
+          : [];
+      });
+
+      localStorage.setItem("benaCart", JSON.stringify(updatedAllCarts));
+
+      if (userId) {
+        setCartIds(updatedAllCarts[userId] || []);
+      }
+
+      window.dispatchEvent(new CustomEvent("bena-cart-updated"));
+    } else {
+      localStorage.setItem("benaCart", JSON.stringify({}));
+
+      setCartIds([]);
+
+      window.dispatchEvent(new CustomEvent("bena-cart-updated"));
+    }
+
+    /* DELETE CHATS */
 
     const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
 
-    delete chats[productId];
+    const updatedChats = {};
 
-    localStorage.setItem("benaMessages", JSON.stringify(chats));
+    Object.entries(chats).forEach(([conversationId, conversation]) => {
+      if (Array.isArray(conversation)) {
+        return;
+      }
+
+      if (Number(conversation?.productId) !== Number(productId)) {
+        updatedChats[conversationId] = conversation;
+      }
+    });
+
+    localStorage.setItem("benaMessages", JSON.stringify(updatedChats));
 
     /* DELETE NOTIFICATIONS */
 
     const notifications =
       JSON.parse(localStorage.getItem("benaNotifications")) || [];
 
-    const updatedNotifications = notifications.filter(
-      (notification) =>
-        notification.link !== `/products/${productId}` &&
-        notification.link !== `/messages/${productId}`,
-    );
+    const updatedNotifications = notifications.filter((notification) => {
+      const productLink = `/products/${productId}`;
+
+      const messageLinkStart = `/messages/${productId}`;
+
+      const isProductNotification = notification.link === productLink;
+
+      const isMessageNotification =
+        notification.link?.startsWith(messageLinkStart);
+
+      const isConversationNotification = notification.conversationId
+        ?.toString()
+        .startsWith(`${productId}_`);
+
+      return !(
+        isProductNotification ||
+        isMessageNotification ||
+        isConversationNotification
+      );
+    });
 
     localStorage.setItem(
       "benaNotifications",
@@ -326,322 +457,348 @@ function Products() {
   };
 
   return (
-    <main className="products-page" dir="rtl">
-      <Toast show={toast.show} message={toast.message} type={toast.type} />
+    <>
+      <Navbar />
 
-      <div className="products-page__container">
-        <button
-          type="button"
-          className="products__back"
-          onClick={() => navigate("/")}
-        >
-          <ArrowRight size={18} />
+      <main className="products-page" dir="rtl">
+        <Toast show={toast.show} message={toast.message} type={toast.type} />
 
-          <span>العودة للرئيسية</span>
-        </button>
-
-        <div className="products-page__heading">
-          <div>
-            <span>تسوّق بسهولة</span>
-
-            <h1>كل المنتجات</h1>
-
-            <p>اكتشف المنتجات المعروضة من مستخدمي بينا داخل قطاع غزة.</p>
-          </div>
-
+        <div className="products-page__container">
           <button
             type="button"
-            className="products-sell-btn"
-            onClick={() => navigate("/sell")}
+            className="products-back-button"
+            onClick={() => navigate("/")}
           >
-            بيع منتج
+            <ArrowRight size={19} />
+
+            <span>العودة للرئيسية</span>
           </button>
-        </div>
 
-        {/* SEARCH */}
+          <div className="products-page__heading">
+            <div>
+              <span>تسوّق بسهولة</span>
 
-        <div className="products-search">
-          <Search size={20} />
+              <h1>كل المنتجات</h1>
 
-          <input
-            type="text"
-            placeholder="ابحث عن منتج..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        {/* CATEGORIES */}
-
-        <div className="products-categories">
-          {categories.map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={category === item ? "active" : ""}
-              onClick={() => {
-                setCategory(item);
-
-                const params = new URLSearchParams();
-
-                if (search.trim()) {
-                  params.set("search", search.trim());
-                }
-
-                if (item !== "الكل") {
-                  params.set("category", item);
-                }
-
-                const query = params.toString();
-
-                navigate(query ? `/products?${query}` : "/products");
-              }}
-            >
-              {item === "الكل" ? "كل التصنيفات" : item}
-            </button>
-          ))}
-        </div>
-
-        <div className="products-layout">
-          {/* FILTERS */}
-
-          <aside className="products-filters">
-            <div className="filters-title">
-              <SlidersHorizontal size={18} />
-
-              <h3>تصفية النتائج</h3>
-            </div>
-
-            <div className="filter-group">
-              <label>الحالة</label>
-
-              <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
-              >
-                <option value="الكل">كل الحالات</option>
-
-                <option value="جديد">جديد</option>
-
-                <option value="ممتاز">ممتاز</option>
-
-                <option value="مستخدم">مستخدم</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>الموقع</label>
-
-              <select
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              >
-                <option value="الكل">كل المناطق</option>
-
-                <option value="غزة">غزة</option>
-
-                <option value="شمال غزة">شمال غزة</option>
-
-                <option value="دير البلح">دير البلح</option>
-
-                <option value="خان يونس">خان يونس</option>
-
-                <option value="رفح">رفح</option>
-              </select>
+              <p>اكتشف المنتجات المعروضة من مستخدمي بينا داخل قطاع غزة.</p>
             </div>
 
             <button
               type="button"
-              className="reset-filters"
-              onClick={() => {
-                setSearch("");
-
-                setCategory("الكل");
-
-                setCondition("الكل");
-
-                setLocation("الكل");
-
-                setSort("latest");
-
-                navigate("/products");
-              }}
+              className="products-sell-btn"
+              onClick={() => navigate("/sell")}
             >
-              مسح الفلاتر
+              بيع منتج
             </button>
-          </aside>
+          </div>
 
-          {/* RESULTS */}
+          {/* SEARCH */}
 
-          <section className="products-results">
-            <div className="products-results__top">
-              <p>
-                <strong>{filteredProducts.length}</strong> منتجات
-              </p>
+          <div className="products-search">
+            <Search size={20} />
 
-              <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                <option value="latest">الأحدث</option>
+            <input
+              type="text"
+              placeholder="ابحث عن منتج..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-                <option value="low">السعر: الأقل أولاً</option>
+          {/* CATEGORIES */}
 
-                <option value="high">السعر: الأعلى أولاً</option>
-              </select>
-            </div>
+          <div className="products-categories">
+            {categories.map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={category === item ? "active" : ""}
+                onClick={() => {
+                  setCategory(item);
 
-            {filteredProducts.length > 0 ? (
-              <div className="all-products-grid">
-                {filteredProducts.map((product) => (
-                  <article
-                    key={product.id}
-                    className="all-product-card"
-                    onClick={() => navigate(`/products/${product.id}`)}
-                  >
-                    <div className="all-product-image">
-                      <img src={product.image} alt={product.name} />
+                  const params = new URLSearchParams();
 
-                      {!isOwner(product) && (
-                        <button
-                          type="button"
-                          className={`all-product-heart ${
-                            isFavorite(product.id) ? "active" : ""
-                          }`}
-                          aria-label="المفضلة"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                  if (search.trim()) {
+                    params.set("search", search.trim());
+                  }
 
-                            toggleFavorite(product.id);
-                          }}
+                  if (item !== "الكل") {
+                    params.set("category", item);
+                  }
+
+                  const query = params.toString();
+
+                  navigate(query ? `/products?${query}` : "/products");
+                }}
+              >
+                {item === "الكل" ? "كل التصنيفات" : item}
+              </button>
+            ))}
+          </div>
+
+          <div className="products-layout">
+            {/* FILTERS */}
+
+            <aside className="products-filters">
+              <div className="filters-title">
+                <SlidersHorizontal size={18} />
+
+                <h3>تصفية النتائج</h3>
+              </div>
+
+              <div className="filter-group">
+                <label>الحالة</label>
+
+                <select
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value)}
+                >
+                  <option value="الكل">كل الحالات</option>
+
+                  <option value="جديد">جديد</option>
+
+                  <option value="ممتاز">ممتاز</option>
+
+                  <option value="مستخدم">مستخدم</option>
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label>الموقع</label>
+
+                <select
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                >
+                  <option value="الكل">كل المناطق</option>
+
+                  <option value="غزة">غزة</option>
+
+                  <option value="شمال غزة">شمال غزة</option>
+
+                  <option value="دير البلح">دير البلح</option>
+
+                  <option value="خان يونس">خان يونس</option>
+
+                  <option value="رفح">رفح</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="reset-filters"
+                onClick={() => {
+                  setSearch("");
+
+                  setCategory("الكل");
+
+                  setCondition("الكل");
+
+                  setLocation("الكل");
+
+                  setSort("latest");
+
+                  navigate("/products");
+                }}
+              >
+                مسح الفلاتر
+              </button>
+            </aside>
+
+            {/* RESULTS */}
+
+            <section className="products-results">
+              <div className="products-results__top">
+                <p>
+                  <strong>{filteredProducts.length}</strong> منتجات
+                </p>
+
+                <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                  <option value="latest">الأحدث</option>
+
+                  <option value="low">السعر: الأقل أولاً</option>
+
+                  <option value="high">السعر: الأعلى أولاً</option>
+                </select>
+              </div>
+
+              {filteredProducts.length > 0 ? (
+                <div className="all-products-grid">
+                  {filteredProducts.map((product) => (
+                    <article
+                      key={product.id}
+                      className="all-product-card"
+                      onClick={() => navigate(`/products/${product.id}`)}
+                    >
+                      <div className="all-product-image">
+                        <img src={product.image} alt={product.name} />
+
+                        {!isOwner(product) && (
+                          <button
+                            type="button"
+                            className={`all-product-heart ${
+                              isFavorite(product.id) ? "active" : ""
+                            }`}
+                            aria-label="المفضلة"
+                            onClick={(e) => {
+                              e.stopPropagation();
+
+                              toggleFavorite(product.id);
+                            }}
+                          >
+                            <Heart
+                              size={19}
+                              fill={
+                                isFavorite(product.id) ? "currentColor" : "none"
+                              }
+                            />
+                          </button>
+                        )}
+
+                        <span
+                          className={`all-product-condition ${product.conditionClass}`}
                         >
-                          <Heart
-                            size={19}
-                            fill={
-                              isFavorite(product.id) ? "currentColor" : "none"
-                            }
-                          />
-                        </button>
-                      )}
-
-                      <span
-                        className={`all-product-condition ${product.conditionClass}`}
-                      >
-                        {product.condition}
-                      </span>
-                    </div>
-
-                    <div className="all-product-content">
-                      <span className="all-product-category">
-                        {product.category || "أخرى"}
-                      </span>
-
-                      <h3>{product.name}</h3>
-
-                      <div className="all-product-location">
-                        <MapPin size={13} />
-
-                        {product.location}
+                          {product.condition}
+                        </span>
                       </div>
 
-                      <div className="all-product-price">
-                        <strong>
-                          {Number(product.price).toLocaleString()}
-                        </strong>
+                      <div className="all-product-content">
+                        <span className="all-product-category">
+                          {product.category || "أخرى"}
+                        </span>
 
-                        <span>₪</span>
-                      </div>
+                        <h3>{product.name}</h3>
 
-                      {isOwner(product) && (
-                        <div className="all-product-manage">
-                          <button
-                            type="button"
-                            className="all-product-edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                        <div className="all-product-location">
+                          <MapPin size={13} />
 
-                              navigate(`/edit-product/${product.id}`);
-                            }}
-                          >
-                            تعديل
-                          </button>
-
-                          <button
-                            type="button"
-                            className="all-product-delete"
-                            onClick={(e) => {
-                              e.stopPropagation();
-
-                              openDeleteModal(product);
-                            }}
-                          >
-                            حذف
-                          </button>
+                          {product.location}
                         </div>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="no-products">
-                <Search size={35} />
 
-                <h3>ما لقينا منتجات</h3>
+                        <div className="all-product-price">
+                          <strong>
+                            {Number(product.price).toLocaleString()}
+                          </strong>
 
-                <p>جرّب تغيّر البحث أو الفلاتر.</p>
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
+                          <span>₪</span>
+                        </div>
 
-      {/* DELETE MODAL */}
+                        {!isOwner(product) && (
+                          <button
+                            type="button"
+                            className={`all-product-cart ${
+                              isInCart(product.id) ? "in-cart" : ""
+                            }`}
+                            onClick={(e) => handleAddToCart(e, product)}
+                          >
+                            {isInCart(product.id) ? (
+                              <>
+                                <Check size={17} />
+                                عرض السلة
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart size={17} />
+                                أضف للسلة
+                              </>
+                            )}
+                          </button>
+                        )}
 
-      {productToDelete && (
-        <div className="delete-modal-overlay" onClick={closeDeleteModal}>
-          <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="delete-modal-close"
-              onClick={closeDeleteModal}
-              aria-label="إغلاق"
-            >
-              <X size={18} />
-            </button>
+                        {isOwner(product) && (
+                          <div className="all-product-manage">
+                            <button
+                              type="button"
+                              className="all-product-edit"
+                              onClick={(e) => {
+                                e.stopPropagation();
 
-            <div className="delete-modal-icon">
-              <TriangleAlert size={30} />
-            </div>
+                                navigate(`/edit-product/${product.id}`);
+                              }}
+                            >
+                              تعديل
+                            </button>
 
-            <h2>حذف المنتج؟</h2>
+                            <button
+                              type="button"
+                              className="all-product-delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
 
-            <p>
-              هل أنت متأكد من حذف
-              <strong> {productToDelete.name}؟</strong>
-              <br />
-              لن تتمكن من استرجاعه بعد الحذف.
-            </p>
+                                openDeleteModal(product);
+                              }}
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-products">
+                  <Search size={35} />
 
-            <div className="delete-modal-actions">
-              <button
-                type="button"
-                className="delete-modal-cancel"
-                onClick={closeDeleteModal}
-              >
-                إلغاء
-              </button>
+                  <h3>ما لقينا منتجات</h3>
 
-              <button
-                type="button"
-                className="delete-modal-confirm"
-                onClick={deleteProduct}
-              >
-                <Trash2 size={16} />
-                حذف المنتج
-              </button>
-            </div>
+                  <p>جرّب تغيّر البحث أو الفلاتر.</p>
+                </div>
+              )}
+            </section>
           </div>
         </div>
-      )}
-    </main>
+
+        {/* DELETE MODAL */}
+
+        {productToDelete && (
+          <div className="delete-modal-overlay" onClick={closeDeleteModal}>
+            <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="delete-modal-close"
+                onClick={closeDeleteModal}
+                aria-label="إغلاق"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="delete-modal-icon">
+                <TriangleAlert size={30} />
+              </div>
+
+              <h2>حذف المنتج؟</h2>
+
+              <p>
+                هل أنت متأكد من حذف
+                <strong> {productToDelete.name}؟</strong>
+                <br />
+                لن تتمكن من استرجاعه بعد الحذف.
+              </p>
+
+              <div className="delete-modal-actions">
+                <button
+                  type="button"
+                  className="delete-modal-cancel"
+                  onClick={closeDeleteModal}
+                >
+                  إلغاء
+                </button>
+
+                <button
+                  type="button"
+                  className="delete-modal-confirm"
+                  onClick={deleteProduct}
+                >
+                  <Trash2 size={16} />
+                  حذف المنتج
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
