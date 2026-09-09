@@ -20,6 +20,7 @@ import {
   Package,
   User,
   ShoppingCart,
+  LayoutDashboard,
 } from "lucide-react";
 
 import Toast from "../components/Toast";
@@ -70,6 +71,8 @@ function Navbar() {
   const unreadMessagesCount = notifications.filter(
     (notification) => notification.type === "message" && !notification.read,
   ).length;
+
+  /* TOAST */
 
   const showToast = (message, type = "success") => {
     setToast({
@@ -634,6 +637,22 @@ function Navbar() {
                       </div>
 
                       <div className="account-menu-divider"></div>
+
+                      {/* ADMIN DASHBOARD */}
+
+                      {currentUser.role === "admin" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAccountMenu(false);
+
+                            navigate("/admin");
+                          }}
+                        >
+                          <LayoutDashboard size={16} />
+                          لوحة الإدارة
+                        </button>
+                      )}
 
                       <button
                         type="button"

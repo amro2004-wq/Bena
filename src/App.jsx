@@ -15,9 +15,16 @@ import NotFound from "./pages/NotFound";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
+import Cart from "./pages/Cart";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
-import Cart from "./pages/Cart";
+import AdminRoute from "./components/AdminRoute";
+
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
+import AdminProducts from "./pages/AdminProducts";
+import AdminMessages from "./pages/AdminMessages";
 
 function App() {
   return (
@@ -82,6 +89,15 @@ function App() {
       />
 
       <Route
+        path="/cart"
+        element={
+          <ProtectedRoute>
+            <Cart />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/messages"
         element={
           <ProtectedRoute>
@@ -126,18 +142,47 @@ function App() {
         }
       />
 
+      {/* ADMIN */}
+
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <AdminRoute>
+            <AdminUsers />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products"
+        element={
+          <AdminRoute>
+            <AdminProducts />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/messages"
+        element={
+          <AdminRoute>
+            <AdminMessages />
+          </AdminRoute>
+        }
+      />
+
       {/* NOT FOUND */}
 
       <Route path="*" element={<NotFound />} />
-
-      <Route
-        path="/cart"
-        element={
-          <ProtectedRoute>
-            <Cart />
-          </ProtectedRoute>
-        }
-      />
     </Routes>
   );
 }

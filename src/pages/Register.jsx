@@ -244,6 +244,8 @@ function Register() {
       password: form.password,
 
       createdAt: new Date().toISOString(),
+
+      role: "user",
     };
 
     const updatedUsers = [...users, newUser];
