@@ -6,7 +6,7 @@ import Toast from "../components/Toast";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   Mail,
@@ -14,26 +14,27 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  ShoppingBag,
-  MessageCircle,
-  MapPin,
+  PackagePlus,
+  MessagesSquare,
+  MapPinned,
   LoaderCircle,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
-
-import { FcGoogle } from "react-icons/fc";
-
-import { FaFacebookF, FaApple } from "react-icons/fa";
 
 function Login() {
   const navigate = useNavigate();
-
   const location = useLocation();
+
+  const toastTimerRef = useRef(null);
+  const actionTimersRef = useRef([]);
 
   /* REDIRECT */
 
   const redirectPath =
     typeof location.state?.from === "string" &&
-    location.state.from.startsWith("/")
+    location.state.from.startsWith("/") &&
+    !location.state.from.startsWith("//")
       ? location.state.from
       : "/";
 
@@ -45,9 +46,7 @@ function Login() {
   });
 
   const [errors, setErrors] = useState({});
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
 
   /* TOAST */
@@ -59,24 +58,60 @@ function Login() {
   });
 
   const showToast = (message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
   };
 
+  /* TIMER */
+
+  const addActionTimer = (callback, delay) => {
+    const timerId = setTimeout(() => {
+      actionTimersRef.current = actionTimersRef.current.filter(
+        (currentTimerId) => currentTimerId !== timerId,
+      );
+
+      callback();
+    }, delay);
+
+    actionTimersRef.current.push(timerId);
+  };
+
+  /* CLEANUP */
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+
+      actionTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+
+      actionTimersRef.current = [];
+    };
+  }, []);
+
   /* CHANGE */
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setForm((current) => ({
       ...current,
@@ -95,7 +130,6 @@ function Login() {
     const newErrors = {};
 
     const email = form.email.trim().toLowerCase();
-
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!email) {
@@ -113,10 +147,22 @@ function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /* STORAGE */
+
+  const getUsers = () => {
+    try {
+      const savedUsers = JSON.parse(localStorage.getItem("benaUsers"));
+
+      return Array.isArray(savedUsers) ? savedUsers : [];
+    } catch {
+      return [];
+    }
+  };
+
   /* LOGIN */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
 
     if (isLoading) {
       return;
@@ -126,8 +172,7 @@ function Login() {
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
-
+    const users = getUsers();
     const email = form.email.trim().toLowerCase();
 
     const user = users.find(
@@ -165,6 +210,7 @@ function Login() {
     setIsLoading(true);
 
     /* CURRENT USER */
+
     const currentUser = {
       id: user.id,
       name: user.name,
@@ -173,19 +219,25 @@ function Login() {
       createdAt: user.createdAt,
     };
 
-    setTimeout(() => {
-      localStorage.setItem("benaCurrentUser", JSON.stringify(currentUser));
+    addActionTimer(() => {
+      try {
+        localStorage.setItem("benaCurrentUser", JSON.stringify(currentUser));
 
-      setIsLoading(false);
+        window.dispatchEvent(new Event("bena-users-updated"));
 
-      showToast(`أهلاً ${user.name} 👋`, "success");
+        showToast(`أهلاً ${user.name} 👋`, "success");
 
-      setTimeout(() => {
-        navigate(redirectPath, {
-          replace: true,
-        });
-      }, 800);
-    }, 800);
+        addActionTimer(() => {
+          navigate(redirectPath, {
+            replace: true,
+          });
+        }, 700);
+      } catch {
+        setIsLoading(false);
+
+        showToast("تعذر تسجيل الدخول، حاول مرة أخرى", "error");
+      }
+    }, 500);
   };
 
   return (
@@ -197,11 +249,11 @@ function Login() {
 
         <section className="auth-visual">
           <span className="auth-decor auth-decor-one"></span>
-
+          <span className="auth-decor auth-decor-two"></span>
           <span className="auth-orange-circle"></span>
 
           <div className="auth-brand">
-            <h2>بينا</h2>
+            <div className="auth-brand-name">بينا</div>
 
             <p>
               من الناس
@@ -210,37 +262,57 @@ function Login() {
             </p>
           </div>
 
-          <div className="auth-visual-title">
-            <h3>
-              كل اللي بدك إياه
-              <br />
-              موجود بينا
-            </h3>
-          </div>
-
-          <div className="auth-benefits">
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <ShoppingBag size={17} />
-              </span>
-
-              <strong>بيع منتجاتك بكل سهولة</strong>
+          <div className="auth-visual-content">
+            <div className="auth-visual-badge">
+              <Sparkles size={14} />
+              <span>سوقك المحلي داخل غزة</span>
             </div>
 
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <MessageCircle size={17} />
-              </span>
+            <div className="auth-visual-title">
+              <h2>
+                كل اللي بدك إياه
+                <br />
+                <span>موجود بينا.</span>
+              </h2>
 
-              <strong>تواصل مباشرة مع البائع</strong>
+              <p>مكان واحد يجمع البيع والشراء والتواصل بسهولة.</p>
             </div>
 
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <MapPin size={17} />
-              </span>
+            {/* BENEFITS */}
 
-              <strong>اكتشف منتجات قريبة منك</strong>
+            <div className="auth-benefits">
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <PackagePlus />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>بيع منتجاتك بسهولة</strong>
+                  <small>اعرض منتجك ووصل للمشترين</small>
+                </div>
+              </div>
+
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <MessagesSquare />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>تواصل مباشرة</strong>
+                  <small>راسل البائع واتفق معه بسهولة</small>
+                </div>
+              </div>
+
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <MapPinned />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>منتجات قريبة منك</strong>
+                  <small>اكتشف المنتجات داخل قطاع غزة</small>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -253,12 +325,25 @@ function Login() {
 
         <section className="auth-form-side" dir="rtl">
           <div className="auth-form-content">
-            <div className="auth-form-brand">بينا</div>
+            <div className="auth-mobile-brand">
+              <span>بينا</span>
+              <small>من الناس... للناس</small>
+            </div>
+
+            <div className="auth-form-top">
+              <div className="auth-form-icon">
+                <ShieldCheck size={22} />
+              </div>
+
+              <div>
+                <span>مرحبًا من جديد</span>
+                <small>سعداء بعودتك إلى بينا</small>
+              </div>
+            </div>
 
             <div className="auth-heading">
               <h1>أهلاً بعودتك</h1>
-
-              <p>سجل دخولك وكمل البيع والشراء على بينا</p>
+              <p>سجّل دخولك للمتابعة إلى حسابك على بينا.</p>
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
@@ -283,6 +368,7 @@ function Login() {
                     placeholder="example@email.com"
                     autoComplete="email"
                     disabled={isLoading}
+                    dir="ltr"
                   />
                 </div>
 
@@ -354,49 +440,30 @@ function Login() {
                 ) : (
                   <>
                     <span>تسجيل الدخول</span>
-
                     <ArrowLeft size={18} />
                   </>
                 )}
               </button>
             </form>
 
-            {/* DIVIDER */}
-
-            <div className="auth-divider">
-              <span>أو باستخدام</span>
-            </div>
-
-            {/* SOCIAL */}
-
-            <div className="auth-socials">
-              <button type="button">
-                <FcGoogle className="social-icon google-icon" />
-
-                <span>Google</span>
-              </button>
-
-              <button type="button">
-                <span className="facebook-icon">
-                  <FaFacebookF />
-                </span>
-
-                <span>Facebook</span>
-              </button>
-
-              <button type="button">
-                <FaApple className="social-icon apple-icon" />
-
-                <span>Apple</span>
-              </button>
-            </div>
-
             {/* REGISTER */}
 
-            <p className="auth-login">
-              ما عندك حساب؟
-              <Link to="/register">إنشاء حساب جديد</Link>
-            </p>
+            <div className="auth-account-box">
+              <div>
+                <strong>جديد على بينا؟</strong>
+                <span>أنشئ حسابك وابدأ البيع والشراء</span>
+              </div>
+
+              <Link to="/register">
+                إنشاء حساب
+                <ArrowLeft size={15} />
+              </Link>
+            </div>
+
+            <div className="auth-security-note">
+              <ShieldCheck size={14} />
+              <span>بيانات حسابك تستخدم فقط لتجربة منصة بينا.</span>
+            </div>
           </div>
         </section>
       </div>

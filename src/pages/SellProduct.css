@@ -2,39 +2,53 @@
 
 .sell-page {
   min-height: 100vh;
-
   padding: 40px 55px 80px;
-
-  background: #fffbf5;
+  background: var(--bena-page-bg);
 }
 
 .sell-container {
   width: 100%;
   max-width: 1250px;
-
   margin: 0 auto;
 }
 
 /* BACK */
 
 .sell-back {
-  margin-bottom: 22px;
-  padding: 0;
-
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 7px;
-
+  margin-bottom: 22px;
+  padding: 6px 0;
   border: none;
-
   background: transparent;
-  color: #5b21b6;
-
+  color: #71717a;
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 700;
-
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    color 0.2s ease,
+    gap 0.2s ease;
+}
+
+.sell-back:hover {
+  color: #5b21b6;
+  gap: 10px;
+}
+
+.sell-back svg {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.sell-back:hover svg {
+  transform: translateX(3px);
+}
+
+.sell-back:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 /* HEADING */
@@ -45,25 +59,21 @@
 
 .sell-heading span {
   color: #f97316;
-
   font-size: 12px;
   font-weight: 700;
 }
 
 .sell-heading h1 {
   margin: 6px 0;
-
   color: #18181b;
-
   font-size: 32px;
   font-weight: 900;
 }
 
 .sell-heading p {
+  max-width: 650px;
   margin: 0;
-
   color: #71717a;
-
   font-size: 13px;
   line-height: 1.7;
 }
@@ -74,13 +84,11 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 24px;
-
   align-items: start;
 }
 
 .sell-form-main {
   min-width: 0;
-
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -89,77 +97,90 @@
 /* CARD */
 
 .sell-card {
+  min-width: 0;
   padding: 22px;
-
   border: 1px solid #e9e5ef;
   border-radius: 18px;
-
   background: #ffffff;
 }
 
 .sell-card-title {
   margin-bottom: 20px;
-
   display: flex;
   align-items: center;
   gap: 8px;
-
   color: #5b21b6;
+}
+
+.sell-card-title svg {
+  flex-shrink: 0;
 }
 
 .sell-card-title h3 {
   margin: 0;
-
   color: #18181b;
-
   font-size: 15px;
 }
 
 /* IMAGE UPLOAD */
 
 .image-upload {
+  position: relative;
   width: 100%;
   height: 280px;
-
   display: block;
-
   overflow: hidden;
-
   border: 2px dashed #dcd5e4;
   border-radius: 14px;
-
   background: #faf8fc;
-
   cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.image-upload:hover {
+  border-color: #b8a6d6;
+  background: #f8f4ff;
+}
+
+.image-upload:focus-within {
+  border-color: #5b21b6;
+  box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.08);
+}
+
+.image-upload.disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .image-upload input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .image-upload img {
   width: 100%;
   height: 100%;
-
   display: block;
-
   object-fit: cover;
 }
 
 .image-upload-placeholder {
   width: 100%;
   height: 100%;
-
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-
   padding: 20px;
-
   color: #5b21b6;
-
   text-align: center;
 }
 
@@ -169,7 +190,6 @@
 
 .image-upload-placeholder span {
   color: #9a939f;
-
   font-size: 10px;
 }
 
@@ -183,7 +203,6 @@
 
 .form-group {
   min-width: 0;
-
   margin-bottom: 17px;
 }
 
@@ -193,58 +212,68 @@
 
 .form-group label {
   margin-bottom: 7px;
-
   display: flex;
   align-items: center;
   gap: 5px;
-
   color: #18181b;
-
   font-size: 11px;
   font-weight: 700;
+}
+
+.form-group label svg {
+  flex-shrink: 0;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
   width: 100%;
-
+  max-width: 100%;
   border: 1px solid #e5e0e9;
   border-radius: 10px;
   outline: none;
-
   background: #ffffff;
   color: #18181b;
-
   font-family: inherit;
   font-size: 12px;
-
   transition:
     border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .form-group input,
 .form-group select {
   height: 43px;
-
   padding: 0 12px;
 }
 
 .form-group textarea {
   min-height: 130px;
-
   padding: 12px;
-
+  line-height: 1.8;
   resize: vertical;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #a1a1aa;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   border-color: #5b21b6;
-
   box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.06);
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+  cursor: not-allowed;
+  background: #f7f7f8;
+  color: #71717a;
+  opacity: 0.75;
 }
 
 /* PRICE */
@@ -259,113 +288,102 @@
 
 .price-input span {
   position: absolute;
-
   top: 50%;
   left: 12px;
-
   transform: translateY(-50%);
-
   color: #5b21b6;
-
   font-size: 13px;
   font-weight: 800;
+  pointer-events: none;
 }
 
 /* SIDE */
 
 .sell-form-side {
   position: sticky;
-  top: 25px;
-
+  top: 110px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 
 .sell-help-card {
+  min-width: 0;
   padding: 16px;
-
   display: flex;
   align-items: flex-start;
   gap: 10px;
-
   border-radius: 14px;
-
   background: #f5f0ff;
   color: #5b21b6;
 }
 
+.sell-help-card > svg {
+  flex-shrink: 0;
+}
+
+.sell-help-card > div {
+  min-width: 0;
+}
+
 .sell-help-card strong {
   display: block;
-
   margin-bottom: 4px;
-
   color: #18181b;
-
   font-size: 11px;
 }
 
 .sell-help-card p {
   margin: 0;
-
   color: #71717a;
-
   font-size: 10px;
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 /* PUBLISH */
 
 .publish-btn {
   width: 100%;
-  height: 48px;
-
+  min-height: 48px;
+  padding: 10px 16px;
   border: none;
   border-radius: 11px;
-
   background: #5b21b6;
   color: #ffffff;
-
   font-family: inherit;
   font-size: 13px;
   font-weight: 800;
-
   cursor: pointer;
-
   transition:
     background 0.2s ease,
     transform 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
-.publish-btn:hover {
+.publish-btn:hover:not(:disabled) {
   background: #4c1d95;
-
   transform: translateY(-1px);
-
   box-shadow: 0 8px 20px rgba(91, 33, 182, 0.14);
 }
 
-/* MESSAGE */
-
-.sell-message {
-  padding: 11px 13px;
-
-  border-radius: 10px;
-
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.6;
+.publish-btn:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
-.sell-message.success {
-  background: #dcfce7;
-  color: #15803d;
+.publish-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
-.sell-message.error {
-  background: #fee2e2;
-  color: #b91c1c;
+/* ACCESSIBILITY */
+
+.sell-back:focus-visible,
+.publish-btn:focus-visible {
+  outline: 3px solid rgba(91, 33, 182, 0.18);
+  outline-offset: 3px;
 }
 
 /* TABLET */
@@ -377,16 +395,18 @@
 
   .sell-form-grid {
     grid-template-columns: 1fr;
-
     gap: 20px;
   }
 
   .sell-form-side {
     position: static;
-
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 15px;
+  }
+
+  .sell-form-side .sell-card {
+    grid-column: 1 / -1;
   }
 
   .publish-btn {
@@ -404,7 +424,6 @@
 
   .sell-back {
     margin-bottom: 18px;
-
     font-size: 12px;
   }
 
@@ -426,7 +445,6 @@
 
   .sell-card {
     padding: 16px;
-
     border-radius: 15px;
   }
 
@@ -440,13 +458,11 @@
 
   .form-row {
     grid-template-columns: 1fr;
-
     gap: 0;
   }
 
   .image-upload {
     height: 220px;
-
     border-radius: 12px;
   }
 
@@ -457,13 +473,11 @@
   .form-group input,
   .form-group select {
     height: 41px;
-
     font-size: 11px;
   }
 
   .form-group textarea {
     min-height: 115px;
-
     font-size: 11px;
   }
 
@@ -476,13 +490,8 @@
   }
 
   .publish-btn {
-    height: 46px;
-
+    min-height: 46px;
     font-size: 12px;
-  }
-
-  .sell-message {
-    font-size: 10px;
   }
 }
 
@@ -506,11 +515,29 @@
     height: 190px;
   }
 
+  .image-upload-placeholder {
+    padding: 14px;
+  }
+
   .image-upload-placeholder strong {
     font-size: 12px;
   }
 
   .image-upload-placeholder span {
     font-size: 9px;
+  }
+}
+
+/* REDUCED MOTION */
+
+@media (prefers-reduced-motion: reduce) {
+  .sell-back,
+  .sell-back svg,
+  .image-upload,
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .publish-btn {
+    transition: none;
   }
 }

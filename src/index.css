@@ -1,28 +1,188 @@
 @import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap");
-* {
+
+/* RESET */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* DOCUMENT */
+
 html {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+
   direction: rtl;
+
+  scroll-behavior: smooth;
+  scroll-padding-top: 110px;
 }
 
+/* BODY */
+
 body {
-  margin: 0;
+  width: 100%;
   min-width: 320px;
-  font-family: "Cairo", sans-serif;
-  background-color: #ffffff;
+  min-height: 100vh;
+
+  margin: 0;
+
+  overflow-x: hidden;
+
+  background: #ffffff;
   color: #18181b;
+
+  font-family: "Cairo", sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ROOT */
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* COLORS */
+
+:root {
+  --bena-page-bg: #f8f7fb;
+}
+
+/* MEDIA */
+
+img,
+picture,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+img,
+picture,
+video,
+canvas {
+  display: block;
+}
+
+/* FORM */
+
 button,
 input,
 select,
 textarea {
-  font-family: "Cairo", sans-serif;
+  font: inherit;
 }
-#root {
-  width: 100%;
-  min-height: 100vh;
+
+button {
+  font-family: inherit;
+}
+
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+button,
+select {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+/* LINKS */
+
+a {
+  color: inherit;
+}
+
+/* TEXT */
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+/* SELECTION */
+
+::selection {
+  background: rgba(91, 33, 182, 0.16);
+  color: #18181b;
+}
+
+/* SCROLLBAR */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8f7fa;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid #f8f7fa;
+  border-radius: 999px;
+
+  background: #c9c3d2;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a79daf;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 700px) {
+  html {
+    scroll-padding-top: 82px;
+  }
+}
+
+@media (max-width: 480px) {
+  html,
+  body {
+    min-width: 280px;
+  }
+
+  html {
+    scroll-padding-top: 74px;
+  }
+}
+
+/* REDUCED MOTION */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

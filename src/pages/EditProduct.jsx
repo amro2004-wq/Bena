@@ -1,35 +1,147 @@
-import { useState } from "react";
+import "./EditProduct.css";
+
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, Save, ShieldAlert } from "lucide-react";
+
+import { ArrowRight, Save, ShieldAlert, ImageOff } from "lucide-react";
 
 import Toast from "../components/Toast";
 
-import "./EditProduct.css";
+const categories = [
+  "إلكترونيات",
+  "موبايلات",
+  "كمبيوتر ولابتوب",
+  "ألعاب وإكسسوارات",
+  "أجهزة منزلية",
+  "أثاث",
+  "ملابس",
+  "أحذية",
+  "حقائب وإكسسوارات",
+  "ساعات ومجوهرات",
+  "عناية شخصية وتجميل",
+  "أطفال ورضع",
+  "ألعاب أطفال",
+  "كتب وقرطاسية",
+  "رياضة ولياقة",
+  "سيارات وقطع غيار",
+  "دراجات",
+  "أدوات ومعدات",
+  "مستلزمات منزلية",
+  "حديقة وزراعة",
+  "حيوانات ومستلزماتها",
+  "مأكولات ومنتجات منزلية",
+  "هوايات ومقتنيات",
+  "أخرى",
+];
+
+const locations = ["غزة", "شمال غزة", "دير البلح", "خان يونس", "رفح"];
+
+const conditions = ["جديد", "ممتاز", "مستخدم"];
 
 function EditProduct() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+  const toastTimerRef = useRef(null);
+  const redirectTimersRef = useRef([]);
+  const loadedProductIdRef = useRef(null);
 
-  const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
+  /* STORAGE */
 
-  const product = savedProducts.find((item) => Number(item.id) === Number(id));
+  const readStorage = useCallback((key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  /* USER */
+
+  const getCurrentUser = useCallback(() => {
+    const savedUser = readStorage("benaCurrentUser", null);
+
+    if (
+      !savedUser ||
+      typeof savedUser !== "object" ||
+      Array.isArray(savedUser)
+    ) {
+      return null;
+    }
+
+    return savedUser;
+  }, [readStorage]);
+
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+
+  const userId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
+
+  /* PRODUCTS */
+
+  const getSavedProducts = useCallback(() => {
+    const products = readStorage("benaProducts", []);
+
+    return Array.isArray(products) ? products : [];
+  }, [readStorage]);
+
+  const [savedProducts, setSavedProducts] = useState(() => getSavedProducts());
+
+  const product =
+    savedProducts.find((item) => String(item?.id) === String(id)) || null;
+
+  /* OWNER */
 
   const isOwner =
-    product &&
-    currentUser &&
-    Number(product.sellerId) === Number(currentUser.id);
+    Boolean(product) &&
+    Boolean(userId) &&
+    product?.sellerId !== undefined &&
+    product?.sellerId !== null &&
+    String(product.sellerId) === userId;
 
-  const [formData, setFormData] = useState(() => ({
-    name: product?.name || "",
-    price: product?.price || "",
-    category: product?.category || "",
-    condition: product?.condition || "",
-    location: product?.location || "",
-    description: product?.description || "",
-    image: product?.image || "",
-  }));
+  /* IMAGE */
+
+  const getProductImage = useCallback((currentProduct) => {
+    if (currentProduct?.image) {
+      return currentProduct.image;
+    }
+
+    if (
+      Array.isArray(currentProduct?.images) &&
+      currentProduct.images.length > 0
+    ) {
+      return currentProduct.images[0] || "";
+    }
+
+    return "";
+  }, []);
+
+  const [imageError, setImageError] = useState(false);
+
+  /* FORM */
+
+  const createFormData = useCallback(
+    (currentProduct) => ({
+      name: currentProduct?.name || "",
+      price: currentProduct?.price ?? "",
+      category: currentProduct?.category || "",
+      condition: currentProduct?.condition || "",
+      location: currentProduct?.location || "",
+      description: currentProduct?.description || "",
+      image: getProductImage(currentProduct),
+    }),
+    [getProductImage],
+  );
+
+  const [formData, setFormData] = useState(() => createFormData(product));
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -37,48 +149,117 @@ function EditProduct() {
     type: "success",
   });
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
+  }, []);
+
+  /* REDIRECT */
+
+  const addRedirectTimer = (callback, delay) => {
+    const timerId = setTimeout(() => {
+      redirectTimersRef.current = redirectTimersRef.current.filter(
+        (currentTimerId) => currentTimerId !== timerId,
+      );
+
+      callback();
+    }, delay);
+
+    redirectTimersRef.current.push(timerId);
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  /* CLEANUP */
 
-    if (!file) return;
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
 
-    if (file.size > 1500000) {
-      showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
+      redirectTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
 
-      e.target.value = "";
+      redirectTimersRef.current = [];
+    };
+  }, []);
+
+  /* REFRESH */
+
+  const refreshProducts = useCallback(() => {
+    setSavedProducts(getSavedProducts());
+  }, [getSavedProducts]);
+
+  const refreshUser = useCallback(() => {
+    setCurrentUser(getCurrentUser());
+  }, [getCurrentUser]);
+
+  /* EVENTS */
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (!event.key || event.key === "benaProducts") {
+        refreshProducts();
+      }
+
+      if (!event.key || event.key === "benaCurrentUser") {
+        refreshUser();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("bena-products-updated", refreshProducts);
+    window.addEventListener("bena-users-updated", refreshUser);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("bena-products-updated", refreshProducts);
+      window.removeEventListener("bena-users-updated", refreshUser);
+    };
+  }, [refreshProducts, refreshUser]);
+
+  /* SYNC FORM */
+
+  useEffect(() => {
+    if (!product) {
+      loadedProductIdRef.current = null;
+      setImageError(false);
 
       return;
     }
 
-    const reader = new FileReader();
+    const productId = String(product.id);
 
-    reader.onloadend = () => {
-      setFormData((current) => ({
-        ...current,
-        image: reader.result,
-      }));
-    };
+    if (loadedProductIdRef.current === productId) {
+      return;
+    }
 
-    reader.readAsDataURL(file);
-  };
+    setFormData(createFormData(product));
+    setImageError(false);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+    loadedProductIdRef.current = productId;
+  }, [product, createFormData]);
+
+  /* CHANGE */
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setFormData((current) => ({
       ...current,
@@ -86,66 +267,262 @@ function EditProduct() {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  /* IMAGE CHANGE */
 
-    if (!isOwner) {
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      showToast("صيغة الصورة غير مدعومة، استخدم PNG أو JPG أو WEBP", "error");
+
+      event.target.value = "";
+
+      return;
+    }
+
+    const maxImageSize = 1.5 * 1024 * 1024;
+
+    if (file.size > maxImageSize) {
+      showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
+
+      event.target.value = "";
+
+      return;
+    }
+
+    setImageError(false);
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        showToast("تعذر قراءة الصورة", "error");
+
+        event.target.value = "";
+
+        return;
+      }
+
+      setFormData((current) => ({
+        ...current,
+        image: reader.result,
+      }));
+
+      setImageError(false);
+    };
+
+    reader.onerror = () => {
+      showToast("حدث خطأ أثناء قراءة الصورة", "error");
+
+      event.target.value = "";
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  /* SUBMIT */
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
+    const latestUser = getCurrentUser();
+
+    /* USER CHECK */
+
+    if (!latestUser || latestUser.id === undefined || latestUser.id === null) {
+      showToast("سجل دخولك أولاً للمتابعة", "info");
+
+      addRedirectTimer(() => {
+        navigate("/login", {
+          state: {
+            from: `/edit-product/${encodeURIComponent(String(id))}`,
+          },
+        });
+      }, 650);
+
+      return;
+    }
+
+    /* LATEST PRODUCT */
+
+    const latestProducts = getSavedProducts();
+
+    const latestProduct =
+      latestProducts.find((item) => String(item?.id) === String(id)) || null;
+
+    if (!latestProduct) {
+      showToast("المنتج غير موجود أو تم حذفه", "error");
+
+      setSavedProducts(latestProducts);
+
+      return;
+    }
+
+    /* OWNERSHIP */
+
+    const ownsLatestProduct =
+      latestProduct.sellerId !== undefined &&
+      latestProduct.sellerId !== null &&
+      String(latestProduct.sellerId) === String(latestUser.id);
+
+    if (!ownsLatestProduct) {
       showToast("لا يمكنك تعديل منتج لا تملكه", "error");
 
       return;
     }
 
+    const { name, price, category, condition, location, description, image } =
+      formData;
+
+    const cleanName = name.trim();
+    const cleanDescription = description.trim();
+
+    /* REQUIRED */
+
     if (
-      !formData.name.trim() ||
-      !formData.price ||
-      !formData.category ||
-      !formData.condition ||
-      !formData.location
+      !cleanName ||
+      price === "" ||
+      !category ||
+      !condition ||
+      !location ||
+      !cleanDescription ||
+      !image ||
+      imageError
     ) {
-      showToast("يرجى تعبئة جميع الحقول المطلوبة", "error");
+      showToast("يرجى تعبئة جميع الحقول وإضافة صورة للمنتج", "error");
 
       return;
     }
 
-    const updatedProducts = savedProducts.map((item) =>
-      Number(item.id) === Number(id) &&
-      Number(item.sellerId) === Number(currentUser.id)
-        ? {
-            ...item,
-            ...formData,
+    /* NAME */
 
-            name: formData.name.trim(),
+    if (cleanName.length < 2) {
+      showToast("اسم المنتج قصير جدًا", "error");
 
-            price: Number(formData.price),
+      return;
+    }
 
-            description: formData.description.trim(),
+    /* PRICE */
 
-            conditionClass:
-              formData.condition === "جديد"
-                ? "new"
-                : formData.condition === "ممتاز"
-                  ? "excellent"
-                  : "used",
+    const numericPrice = Number(price);
 
-            updatedAt: new Date().toISOString(),
-          }
-        : item,
-    );
+    if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+      showToast("يرجى إدخال سعر صحيح للمنتج", "error");
 
-    localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
+      return;
+    }
 
-    showToast("تم تحديث المنتج بنجاح ✓", "success");
+    /* CATEGORY */
 
-    setTimeout(() => {
-      navigate("/my-products");
-    }, 900);
+    if (!categories.includes(category)) {
+      showToast("يرجى اختيار تصنيف صحيح", "error");
+
+      return;
+    }
+
+    /* CONDITION */
+
+    if (!conditions.includes(condition)) {
+      showToast("يرجى اختيار حالة صحيحة للمنتج", "error");
+
+      return;
+    }
+
+    /* LOCATION */
+
+    if (!locations.includes(location)) {
+      showToast("يرجى اختيار منطقة صحيحة", "error");
+
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const updatedAt = new Date().toISOString();
+
+      const updatedProducts = latestProducts.map((item) => {
+        if (String(item?.id) !== String(id)) {
+          return item;
+        }
+
+        if (
+          item?.sellerId === undefined ||
+          item?.sellerId === null ||
+          String(item.sellerId) !== String(latestUser.id)
+        ) {
+          return item;
+        }
+
+        return {
+          ...item,
+
+          name: cleanName,
+
+          price: numericPrice,
+
+          category,
+
+          condition,
+
+          conditionClass:
+            condition === "جديد"
+              ? "new"
+              : condition === "ممتاز"
+                ? "excellent"
+                : "used",
+
+          location,
+
+          description: cleanDescription,
+
+          image,
+
+          updatedAt,
+        };
+      });
+
+      localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
+
+      setSavedProducts(updatedProducts);
+
+      window.dispatchEvent(new Event("bena-products-updated"));
+
+      showToast("تم تحديث المنتج بنجاح ✓", "success");
+
+      addRedirectTimer(() => {
+        navigate(`/products/${encodeURIComponent(String(latestProduct.id))}`, {
+          replace: true,
+        });
+      }, 900);
+    } catch {
+      setIsSubmitting(false);
+
+      showToast("تعذر حفظ التعديلات، حاول مرة أخرى", "error");
+    }
   };
+
+  /* NOT FOUND */
 
   if (!product) {
     return (
       <main className="edit-product-page" dir="rtl">
         <div className="edit-product-not-found">
+          <ImageOff size={40} />
+
           <h2>المنتج غير موجود</h2>
+
+          <p>قد يكون المنتج قد تم حذفه أو لم يعد متوفرًا.</p>
 
           <button type="button" onClick={() => navigate("/my-products")}>
             العودة لمنتجاتي
@@ -154,6 +531,8 @@ function EditProduct() {
       </main>
     );
   }
+
+  /* NOT OWNER */
 
   if (!isOwner) {
     return (
@@ -182,9 +561,11 @@ function EditProduct() {
           type="button"
           className="edit-product-back"
           onClick={() => navigate("/my-products")}
+          disabled={isSubmitting}
         >
           <ArrowRight size={18} />
-          العودة لمنتجاتي
+
+          <span>العودة لمنتجاتي</span>
         </button>
 
         <div className="edit-product-heading">
@@ -195,26 +576,49 @@ function EditProduct() {
           <p>عدّل معلومات المنتج واحفظ التغييرات.</p>
         </div>
 
-        <form className="edit-product-form" onSubmit={handleSubmit}>
+        <form className="edit-product-form" onSubmit={handleSubmit} noValidate>
+          {/* IMAGE */}
+
           <div className="edit-current-image">
-            <img src={formData.image} alt={formData.name} />
+            {formData.image && !imageError ? (
+              <img
+                src={formData.image}
+                alt={formData.name || "صورة المنتج"}
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="edit-image-fallback">
+                <ImageOff size={30} />
+              </div>
+            )}
 
             <div className="edit-image-info">
               <strong>صورة المنتج</strong>
 
-              <span>تقدر تغيّر صورة المنتج من هنا.</span>
+              <span>
+                {imageError
+                  ? "تعذر عرض الصورة، اختار صورة جديدة."
+                  : "تقدر تغيّر صورة المنتج من هنا."}
+              </span>
 
-              <label className="change-image-button">
+              <label
+                className={`change-image-button ${
+                  isSubmitting ? "disabled" : ""
+                }`}
+              >
                 تغيير الصورة
                 <input
                   type="file"
-                  accept="image/png, image/jpeg, image/webp"
+                  accept="image/png,image/jpeg,image/webp"
                   onChange={handleImageChange}
-                  hidden
+                  disabled={isSubmitting}
+                  aria-label="تغيير صورة المنتج"
                 />
               </label>
             </div>
           </div>
+
+          {/* NAME */}
 
           <div className="edit-form-group">
             <label htmlFor="name">اسم المنتج</label>
@@ -226,8 +630,13 @@ function EditProduct() {
               value={formData.name}
               onChange={handleChange}
               placeholder="اسم المنتج"
+              maxLength={100}
+              autoComplete="off"
+              disabled={isSubmitting}
             />
           </div>
+
+          {/* PRICE AND LOCATION */}
 
           <div className="edit-form-row">
             <div className="edit-form-group">
@@ -238,9 +647,12 @@ function EditProduct() {
                 name="price"
                 type="number"
                 min="1"
+                step="1"
                 value={formData.price}
                 onChange={handleChange}
                 placeholder="السعر"
+                inputMode="numeric"
+                disabled={isSubmitting}
               />
             </div>
 
@@ -252,21 +664,20 @@ function EditProduct() {
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
+                disabled={isSubmitting}
               >
                 <option value="">اختر الموقع</option>
 
-                <option value="غزة">غزة</option>
-
-                <option value="شمال غزة">شمال غزة</option>
-
-                <option value="دير البلح">دير البلح</option>
-
-                <option value="خان يونس">خان يونس</option>
-
-                <option value="رفح">رفح</option>
+                {locations.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
+
+          {/* CATEGORY AND CONDITION */}
 
           <div className="edit-form-row">
             <div className="edit-form-group">
@@ -277,58 +688,15 @@ function EditProduct() {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
+                disabled={isSubmitting}
               >
                 <option value="">اختر التصنيف</option>
 
-                <option value="إلكترونيات">إلكترونيات</option>
-
-                <option value="موبايلات">موبايلات</option>
-
-                <option value="كمبيوتر ولابتوب">كمبيوتر ولابتوب</option>
-
-                <option value="ألعاب وإكسسوارات">ألعاب وإكسسوارات</option>
-
-                <option value="أجهزة منزلية">أجهزة منزلية</option>
-
-                <option value="أثاث">أثاث</option>
-
-                <option value="ملابس">ملابس</option>
-
-                <option value="أحذية">أحذية</option>
-
-                <option value="حقائب وإكسسوارات">حقائب وإكسسوارات</option>
-
-                <option value="ساعات ومجوهرات">ساعات ومجوهرات</option>
-
-                <option value="عناية شخصية وتجميل">عناية شخصية وتجميل</option>
-
-                <option value="أطفال ورضع">أطفال ورضع</option>
-
-                <option value="ألعاب أطفال">ألعاب أطفال</option>
-
-                <option value="كتب وقرطاسية">كتب وقرطاسية</option>
-
-                <option value="رياضة ولياقة">رياضة ولياقة</option>
-
-                <option value="سيارات وقطع غيار">سيارات وقطع غيار</option>
-
-                <option value="دراجات">دراجات</option>
-
-                <option value="أدوات ومعدات">أدوات ومعدات</option>
-
-                <option value="مستلزمات منزلية">مستلزمات منزلية</option>
-
-                <option value="حديقة وزراعة">حديقة وزراعة</option>
-
-                <option value="حيوانات ومستلزماتها">حيوانات ومستلزماتها</option>
-
-                <option value="مأكولات ومنتجات منزلية">
-                  مأكولات ومنتجات منزلية
-                </option>
-
-                <option value="هوايات ومقتنيات">هوايات ومقتنيات</option>
-
-                <option value="أخرى">أخرى</option>
+                {categories.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -340,17 +708,20 @@ function EditProduct() {
                 name="condition"
                 value={formData.condition}
                 onChange={handleChange}
+                disabled={isSubmitting}
               >
                 <option value="">اختر الحالة</option>
 
-                <option value="جديد">جديد</option>
-
-                <option value="ممتاز">ممتاز</option>
-
-                <option value="مستخدم">مستخدم</option>
+                {conditions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
+
+          {/* DESCRIPTION */}
 
           <div className="edit-form-group">
             <label htmlFor="description">وصف المنتج</label>
@@ -362,12 +733,21 @@ function EditProduct() {
               value={formData.description}
               onChange={handleChange}
               placeholder="اكتب وصف المنتج..."
+              maxLength={1000}
+              disabled={isSubmitting}
             />
           </div>
 
-          <button type="submit" className="save-product-button">
+          {/* SAVE */}
+
+          <button
+            type="submit"
+            className="save-product-button"
+            disabled={isSubmitting}
+          >
             <Save size={17} />
-            حفظ التعديلات
+
+            {isSubmitting ? "جاري حفظ التعديلات..." : "حفظ التعديلات"}
           </button>
         </form>
       </div>

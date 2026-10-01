@@ -1,6 +1,7 @@
 import "./PromoBanners.css";
 
 import { MapPin, ArrowLeft, Plus } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 
 import sellBox from "../assets/bena-sell-box.png";
@@ -9,14 +10,15 @@ function PromoBanners() {
   const navigate = useNavigate();
 
   return (
-    <section className="promo-banners">
-      {/* Nearby Products */}
-      <div className="promo-card promo-nearby">
-        <div className="nearby-visual">
-          <div className="map-pattern"></div>
+    <section className="promo-banners" aria-label="استكشف وبيع على بينا">
+      {/* NEARBY */}
+
+      <article className="promo-card promo-nearby">
+        <div className="nearby-visual" aria-hidden="true">
+          <div className="map-pattern" />
 
           <div className="map-pin">
-            <MapPin />
+            <MapPin size={48} strokeWidth={2.2} />
           </div>
         </div>
 
@@ -34,16 +36,18 @@ function PromoBanners() {
             className="promo-white-btn"
             onClick={() => navigate("/products")}
           >
-            استكشف الآن
-            <ArrowLeft size={14} />
+            <span>استكشف الآن</span>
+
+            <ArrowLeft size={14} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </article>
 
-      {/* Sell Product */}
-      <div className="promo-card promo-sell">
-        <div className="sell-visual">
-          <img src={sellBox} alt="بيع منتج على بينا" />
+      {/* SELL */}
+
+      <article className="promo-card promo-sell">
+        <div className="sell-visual" aria-hidden="true">
+          <img src={sellBox} alt="" loading="lazy" />
         </div>
 
         <div className="promo-content promo-content-dark">
@@ -56,11 +60,12 @@ function PromoBanners() {
             className="promo-orange-btn"
             onClick={() => navigate("/sell")}
           >
-            <Plus size={15} />
-            ابدأ البيع الآن
+            <Plus size={15} aria-hidden="true" />
+
+            <span>ابدأ البيع الآن</span>
           </button>
         </div>
-      </div>
+      </article>
     </section>
   );
 }

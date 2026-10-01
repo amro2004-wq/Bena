@@ -2,8 +2,7 @@ import "./Navbar.css";
 
 import benaLogo from "../assets/bena-logo.png";
 
-import { useEffect, useRef, useState } from "react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -18,9 +17,16 @@ import {
   LogIn,
   LogOut,
   Package,
+  PackageCheck,
   User,
   ShoppingCart,
   LayoutDashboard,
+  ClipboardList,
+  Menu,
+  Home,
+  Grid2X2,
+  Clock3,
+  Info,
 } from "lucide-react";
 
 import Toast from "../components/Toast";
@@ -29,25 +35,64 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
-
-  const [showClearModal, setShowClearModal] = useState(false);
-
   const notificationRef = useRef(null);
-
   const accountRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaCurrentUser"));
-  });
+  const toastTimerRef = useRef(null);
+  const navigationTimerRef = useRef(null);
+  const sectionTimerRef = useRef(null);
 
-  const [allNotifications, setAllNotifications] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaNotifications")) || [];
-  });
+  /* STORAGE */
+
+  const readStorage = useCallback((key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  /* USER */
+
+  const getCurrentUser = useCallback(() => {
+    const user = readStorage("benaCurrentUser", null);
+
+    if (!user || typeof user !== "object" || Array.isArray(user)) {
+      return null;
+    }
+
+    return user;
+  }, [readStorage]);
+
+  /* NOTIFICATIONS */
+
+  const getAllNotifications = useCallback(() => {
+    const notifications = readStorage("benaNotifications", []);
+
+    return Array.isArray(notifications)
+      ? notifications.filter(
+          (notification) =>
+            notification &&
+            typeof notification === "object" &&
+            !Array.isArray(notification),
+        )
+      : [];
+  }, [readStorage]);
+
+  /* STATE */
+
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+
+  const [allNotifications, setAllNotifications] = useState(getAllNotifications);
 
   const [cartCount, setCartCount] = useState(0);
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
 
   const [toast, setToast] = useState({
     show: false,
@@ -55,12 +100,25 @@ function Navbar() {
     type: "success",
   });
 
+  /* USER DATA */
+
+  const userId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
+
+  const userRole = String(currentUser?.role || "")
+    .trim()
+    .toLowerCase();
+
+  const isAdmin = userRole === "admin";
+
   /* USER NOTIFICATIONS */
 
-  const notifications = currentUser
+  const notifications = userId
     ? allNotifications.filter(
         (notification) =>
-          Number(notification.userId) === Number(currentUser.id),
+          notification && String(notification.userId) === userId,
       )
     : [];
 
@@ -72,157 +130,363 @@ function Navbar() {
     (notification) => notification.type === "message" && !notification.read,
   ).length;
 
+  const sellerOrdersCount = notifications.filter((notification) => {
+    if (!notification || notification.read) {
+      return false;
+    }
+
+    const link = String(notification.link || "");
+
+    return link === "/seller-orders" || link.startsWith("/seller-orders/");
+  }).length;
+
   /* TOAST */
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
-  };
+  }, []);
 
-  /* REFRESH DATA */
-
-  useEffect(() => {
-    const savedNotifications =
-      JSON.parse(localStorage.getItem("benaNotifications")) || [];
-
-    setAllNotifications(savedNotifications);
-
-    const savedUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
-
-    setCurrentUser(savedUser);
-  }, [location.pathname, location.search]);
-
-  /* CART COUNT */
+  /* CLEAN TIMERS */
 
   useEffect(() => {
-    const updateCartCount = () => {
-      const savedUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
-
-      if (!savedUser) {
-        setCartCount(0);
-        return;
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
       }
 
-      const savedCart = JSON.parse(localStorage.getItem("benaCart")) || {};
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+      }
 
-      const cartObject = Array.isArray(savedCart) ? {} : savedCart;
-
-      const userCart = cartObject[String(savedUser.id)] || [];
-
-      setCartCount(userCart.length);
+      if (sectionTimerRef.current) {
+        clearTimeout(sectionTimerRef.current);
+      }
     };
+  }, []);
 
-    updateCartCount();
+  /* REFRESH USER */
 
-    window.addEventListener("bena-cart-updated", updateCartCount);
+  const refreshUser = useCallback(() => {
+    setCurrentUser(getCurrentUser());
+  }, [getCurrentUser]);
 
-    window.addEventListener("storage", updateCartCount);
+  /* REFRESH NOTIFICATIONS */
 
-    return () => {
-      window.removeEventListener("bena-cart-updated", updateCartCount);
+  const refreshNotifications = useCallback(() => {
+    setAllNotifications(getAllNotifications());
+  }, [getAllNotifications]);
 
-      window.removeEventListener("storage", updateCartCount);
-    };
-  }, [currentUser]);
+  /* REFRESH CART */
 
-  /* NOTIFICATIONS OUTSIDE CLICK */
+  const refreshCart = useCallback(() => {
+    const savedUser = getCurrentUser();
+
+    if (!savedUser || savedUser.id === undefined || savedUser.id === null) {
+      setCartCount(0);
+      return;
+    }
+
+    const savedCart = readStorage("benaCart", {});
+
+    if (
+      !savedCart ||
+      typeof savedCart !== "object" ||
+      Array.isArray(savedCart)
+    ) {
+      setCartCount(0);
+      return;
+    }
+
+    const savedUserId = String(savedUser.id);
+
+    const userCart = savedCart[savedUserId] ?? savedCart[savedUser.id];
+
+    setCartCount(Array.isArray(userCart) ? userCart.length : 0);
+  }, [getCurrentUser, readStorage]);
+
+  /* REFRESH ALL */
+
+  const refreshNavbar = useCallback(() => {
+    refreshUser();
+    refreshNotifications();
+    refreshCart();
+  }, [refreshUser, refreshNotifications, refreshCart]);
+
+  /* ROUTE REFRESH */
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    refreshNavbar();
+
+    setShowNotifications(false);
+    setShowAccountMenu(false);
+    setShowMobileMenu(false);
+    setShowClearModal(false);
+  }, [location.pathname, location.search, location.hash, refreshNavbar]);
+
+  /* EVENTS */
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (
+        !event.key ||
+        event.key === "benaCurrentUser" ||
+        event.key === "benaNotifications" ||
+        event.key === "benaCart" ||
+        event.key === "benaUsers"
+      ) {
+        refreshNavbar();
+      }
+    };
+
+    const handleCartUpdated = () => {
+      refreshCart();
+    };
+
+    const handleNotificationsUpdated = () => {
+      refreshNotifications();
+    };
+
+    const handleUsersUpdated = () => {
+      refreshUser();
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    window.addEventListener("bena-cart-updated", handleCartUpdated);
+
+    window.addEventListener(
+      "bena-notifications-updated",
+      handleNotificationsUpdated,
+    );
+
+    window.addEventListener("bena-users-updated", handleUsersUpdated);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+
+      window.removeEventListener("bena-cart-updated", handleCartUpdated);
+
+      window.removeEventListener(
+        "bena-notifications-updated",
+        handleNotificationsUpdated,
+      );
+
+      window.removeEventListener("bena-users-updated", handleUsersUpdated);
+    };
+  }, [refreshNavbar, refreshCart, refreshNotifications, refreshUser]);
+
+  /* OUTSIDE CLICK */
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
       if (
         notificationRef.current &&
         !notificationRef.current.contains(event.target)
       ) {
         setShowNotifications(false);
       }
-    };
 
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  /* ACCOUNT OUTSIDE CLICK */
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
       if (accountRef.current && !accountRef.current.contains(event.target)) {
         setShowAccountMenu(false);
       }
+
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target)
+      ) {
+        setShowMobileMenu(false);
+      }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleOutsideClick);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, []);
+
+  /* ESCAPE */
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setShowNotifications(false);
+      setShowAccountMenu(false);
+      setShowMobileMenu(false);
+      setShowClearModal(false);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  /* CLOSE MENUS */
+
+  const closeMenus = () => {
+    setShowNotifications(false);
+    setShowAccountMenu(false);
+    setShowMobileMenu(false);
+  };
+
+  /* SAFE INTERNAL PATH */
+
+  const getSafeInternalPath = (path) => {
+    if (typeof path !== "string") {
+      return null;
+    }
+
+    const safePath = path.trim();
+
+    if (!safePath || !safePath.startsWith("/") || safePath.startsWith("//")) {
+      return null;
+    }
+
+    return safePath;
+  };
 
   /* REQUIRE LOGIN */
 
   const requireLogin = (path) => {
+    closeMenus();
+
+    const safePath = getSafeInternalPath(path) || "/";
+
     if (!currentUser) {
       showToast("سجل دخولك أولاً للمتابعة", "info");
 
-      setTimeout(() => {
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+      }
+
+      navigationTimerRef.current = setTimeout(() => {
         navigate("/login", {
           state: {
-            from: path,
+            from: safePath,
           },
         });
+
+        navigationTimerRef.current = null;
       }, 650);
 
       return;
     }
 
-    navigate(path);
+    navigate(safePath);
   };
 
   /* LOGOUT */
 
   const handleLogout = () => {
+    if (navigationTimerRef.current) {
+      clearTimeout(navigationTimerRef.current);
+    }
+
     localStorage.removeItem("benaCurrentUser");
 
     setCurrentUser(null);
-
     setAllNotifications([]);
-
     setCartCount(0);
 
-    setShowAccountMenu(false);
+    closeMenus();
 
-    setShowNotifications(false);
+    setShowClearModal(false);
+
+    window.dispatchEvent(new Event("bena-users-updated"));
+
+    window.dispatchEvent(new Event("bena-cart-updated"));
+
+    window.dispatchEvent(new Event("bena-notifications-updated"));
 
     showToast("تم تسجيل الخروج بنجاح", "success");
 
-    setTimeout(() => {
+    navigationTimerRef.current = setTimeout(() => {
       navigate("/");
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
+      navigationTimerRef.current = null;
     }, 700);
+  };
+
+  /* SAVE NOTIFICATIONS */
+
+  const saveNotifications = (updatedNotifications) => {
+    const safeNotifications = Array.isArray(updatedNotifications)
+      ? updatedNotifications.filter(
+          (notification) =>
+            notification &&
+            typeof notification === "object" &&
+            !Array.isArray(notification),
+        )
+      : [];
+
+    try {
+      localStorage.setItem(
+        "benaNotifications",
+        JSON.stringify(safeNotifications),
+      );
+
+      setAllNotifications(safeNotifications);
+
+      window.dispatchEvent(new Event("bena-notifications-updated"));
+
+      return true;
+    } catch {
+      showToast("تعذر تحديث الإشعارات", "error");
+
+      return false;
+    }
   };
 
   /* OPEN NOTIFICATION */
 
   const openNotification = (notification) => {
-    if (!currentUser) {
+    if (
+      !currentUser ||
+      !userId ||
+      !notification ||
+      typeof notification !== "object"
+    ) {
       return;
     }
 
-    const updatedNotifications = allNotifications.map((item) => {
+    if (String(notification.userId) !== userId) {
+      return;
+    }
+
+    const latestNotifications = getAllNotifications();
+
+    const updatedNotifications = latestNotifications.map((item) => {
       if (
-        item.id === notification.id &&
-        Number(item.userId) === Number(currentUser.id)
+        item &&
+        String(item.id) === String(notification.id) &&
+        String(item.userId) === userId
       ) {
         return {
           ...item,
@@ -233,29 +497,28 @@ function Navbar() {
       return item;
     });
 
-    setAllNotifications(updatedNotifications);
+    saveNotifications(updatedNotifications);
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
+    closeMenus();
 
-    setShowNotifications(false);
+    const safeLink = getSafeInternalPath(notification.link);
 
-    if (notification.link) {
-      navigate(notification.link);
+    if (safeLink) {
+      navigate(safeLink);
     }
   };
 
   /* MARK ALL READ */
 
   const markAllAsRead = () => {
-    if (!currentUser) {
+    if (!userId) {
       return;
     }
 
-    const updatedNotifications = allNotifications.map((notification) => {
-      if (Number(notification.userId) === Number(currentUser.id)) {
+    const latestNotifications = getAllNotifications();
+
+    const updatedNotifications = latestNotifications.map((notification) => {
+      if (notification && String(notification.userId) === userId) {
         return {
           ...notification,
           read: true,
@@ -265,48 +528,50 @@ function Navbar() {
       return notification;
     });
 
-    setAllNotifications(updatedNotifications);
+    const saved = saveNotifications(updatedNotifications);
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
-
-    showToast("تم تحديد جميع الإشعارات كمقروءة ✓", "success");
+    if (saved) {
+      showToast("تم تحديد جميع الإشعارات كمقروءة ✓", "success");
+    }
   };
 
   /* DELETE NOTIFICATION */
 
-  const deleteNotification = (e, notificationId) => {
-    e.stopPropagation();
+  const deleteNotification = (event, notificationId) => {
+    event.preventDefault();
+    event.stopPropagation();
 
-    if (!currentUser) {
+    if (!userId) {
       return;
     }
 
-    const updatedNotifications = allNotifications.filter((notification) => {
+    const latestNotifications = getAllNotifications();
+
+    const updatedNotifications = latestNotifications.filter((notification) => {
+      if (!notification) {
+        return false;
+      }
+
       const isTarget =
-        notification.id === notificationId &&
-        Number(notification.userId) === Number(currentUser.id);
+        String(notification.id) === String(notificationId) &&
+        String(notification.userId) === userId;
 
       return !isTarget;
     });
 
-    setAllNotifications(updatedNotifications);
+    const saved = saveNotifications(updatedNotifications);
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
-
-    showToast("تم حذف الإشعار", "info");
+    if (saved) {
+      showToast("تم حذف الإشعار", "info");
+    }
   };
 
   /* CLEAR MODAL */
 
   const openClearModal = () => {
     setShowNotifications(false);
-
+    setShowMobileMenu(false);
+    setShowAccountMenu(false);
     setShowClearModal(true);
   };
 
@@ -314,47 +579,92 @@ function Navbar() {
     setShowClearModal(false);
   };
 
-  /* CLEAR USER NOTIFICATIONS */
+  /* CLEAR NOTIFICATIONS */
 
   const clearAllNotifications = () => {
-    if (!currentUser) {
+    if (!userId) {
       return;
     }
 
-    const updatedNotifications = allNotifications.filter(
-      (notification) => Number(notification.userId) !== Number(currentUser.id),
+    const latestNotifications = getAllNotifications();
+
+    const updatedNotifications = latestNotifications.filter(
+      (notification) => notification && String(notification.userId) !== userId,
     );
 
-    setAllNotifications(updatedNotifications);
+    const saved = saveNotifications(updatedNotifications);
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
+    if (!saved) {
+      return;
+    }
 
     closeClearModal();
 
     showToast("تم مسح جميع الإشعارات ✓", "success");
   };
 
-  /* HOME SECTIONS */
+  /* HOME */
 
-  const goToSection = (sectionId) => {
+  const goToHome = () => {
+    closeMenus();
+
+    if (sectionTimerRef.current) {
+      clearTimeout(sectionTimerRef.current);
+      sectionTimerRef.current = null;
+    }
+
     if (location.pathname !== "/") {
       navigate("/");
 
-      setTimeout(() => {
-        document.getElementById(sectionId)?.scrollIntoView({
+      sectionTimerRef.current = setTimeout(() => {
+        window.scrollTo({
+          top: 0,
           behavior: "smooth",
         });
-      }, 100);
+
+        sectionTimerRef.current = null;
+      }, 150);
 
       return;
     }
 
-    document.getElementById(sectionId)?.scrollIntoView({
+    window.scrollTo({
+      top: 0,
       behavior: "smooth",
     });
+  };
+
+  /* HOME SECTIONS */
+
+  const scrollToSection = (sectionId) => {
+    requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
+  const goToSection = (sectionId) => {
+    closeMenus();
+
+    if (sectionTimerRef.current) {
+      clearTimeout(sectionTimerRef.current);
+    }
+
+    if (location.pathname !== "/") {
+      navigate("/");
+
+      sectionTimerRef.current = setTimeout(() => {
+        scrollToSection(sectionId);
+
+        sectionTimerRef.current = null;
+      }, 150);
+
+      return;
+    }
+
+    scrollToSection(sectionId);
   };
 
   /* NOTIFICATION TIME */
@@ -364,11 +674,16 @@ function Navbar() {
       return "";
     }
 
-    const now = new Date();
-
     const notificationDate = new Date(createdAt);
 
-    const difference = Math.floor((now - notificationDate) / 1000);
+    if (Number.isNaN(notificationDate.getTime())) {
+      return "";
+    }
+
+    const difference = Math.max(
+      0,
+      Math.floor((Date.now() - notificationDate.getTime()) / 1000),
+    );
 
     if (difference < 60) {
       return "الآن";
@@ -377,28 +692,119 @@ function Navbar() {
     if (difference < 3600) {
       const minutes = Math.floor(difference / 60);
 
-      return `منذ ${minutes} ${minutes === 1 ? "دقيقة" : "دقائق"}`;
+      if (minutes === 1) {
+        return "منذ دقيقة";
+      }
+
+      if (minutes >= 3 && minutes <= 10) {
+        return `منذ ${minutes} دقائق`;
+      }
+
+      return `منذ ${minutes} دقيقة`;
     }
 
     if (difference < 86400) {
       const hours = Math.floor(difference / 3600);
 
-      return `منذ ${hours} ${hours === 1 ? "ساعة" : "ساعات"}`;
+      if (hours === 1) {
+        return "منذ ساعة";
+      }
+
+      if (hours >= 3 && hours <= 10) {
+        return `منذ ${hours} ساعات`;
+      }
+
+      return `منذ ${hours} ساعة`;
     }
 
     const days = Math.floor(difference / 86400);
 
-    return `منذ ${days} ${days === 1 ? "يوم" : "أيام"}`;
+    if (days === 1) {
+      return "منذ يوم";
+    }
+
+    if (days >= 3 && days <= 10) {
+      return `منذ ${days} أيام`;
+    }
+
+    return `منذ ${days} يوم`;
   };
 
   /* FIRST NAME */
 
   const getFirstName = () => {
-    if (!currentUser?.name) {
-      return "";
+    const name = String(currentUser?.name || "").trim();
+
+    if (!name) {
+      return "حسابي";
     }
 
-    return currentUser.name.trim().split(" ")[0];
+    return name.split(/\s+/)[0];
+  };
+
+  /* MOBILE NAVIGATE */
+
+  const mobileNavigate = (path) => {
+    closeMenus();
+
+    const safePath = getSafeInternalPath(path);
+
+    if (safePath) {
+      navigate(safePath);
+    }
+  };
+
+  /* NOTIFICATION ITEM */
+
+  const renderNotificationItem = (notification, index, mobile = false) => {
+    const itemClass = mobile ? "mobile-notification-item" : "notification-item";
+
+    const dotClass = mobile ? "mobile-notification-dot" : "notification-dot";
+
+    const deleteClass = mobile
+      ? "mobile-delete-notification"
+      : "delete-notification";
+
+    return (
+      <div
+        key={
+          notification?.id ??
+          `${notification?.createdAt || "notification"}-${index}`
+        }
+        className={`${itemClass} ${!notification?.read ? "unread" : ""}`}
+      >
+        <button
+          type="button"
+          className="notification-main-button"
+          onClick={() => openNotification(notification)}
+          aria-label={notification?.title || "فتح الإشعار"}
+        >
+          {!notification?.read && <span className={dotClass} />}
+
+          <div
+            className={
+              mobile ? "mobile-notification-content" : "notification-content"
+            }
+          >
+            <strong>{notification?.title || "إشعار جديد"}</strong>
+
+            <p>{notification?.text || notification?.message || ""}</p>
+
+            <span>{getNotificationTime(notification?.createdAt)}</span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className={deleteClass}
+          aria-label="حذف الإشعار"
+          title="حذف الإشعار"
+          onClick={(event) => deleteNotification(event, notification?.id)}
+        >
+          ×
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -409,14 +815,24 @@ function Navbar() {
         <div className="navbar-container">
           {/* LOGO */}
 
-          <Link to="/" className="navbar-brand">
+          <Link
+            to="/"
+            className="navbar-brand"
+            aria-label="الذهاب إلى الرئيسية"
+            onClick={(event) => {
+              event.preventDefault();
+              goToHome();
+            }}
+          >
             <img src={benaLogo} alt="بينا" className="navbar-logo" />
           </Link>
 
           {/* NAVIGATION */}
 
-          <nav className="nav-links">
-            <Link to="/">الرئيسية</Link>
+          <nav className="nav-links" aria-label="التنقل الرئيسي">
+            <button type="button" onClick={goToHome}>
+              الرئيسية
+            </button>
 
             <button type="button" onClick={() => goToSection("categories")}>
               التصنيفات
@@ -441,6 +857,8 @@ function Navbar() {
           {/* ACTIONS */}
 
           <div className="nav-actions">
+            {/* SELL */}
+
             <button
               type="button"
               className="sell-button"
@@ -451,9 +869,11 @@ function Navbar() {
               <span>بيع منتج</span>
             </button>
 
+            {/* FAVORITES */}
+
             <button
               type="button"
-              className="nav-icon"
+              className="nav-icon desktop-extra-action"
               aria-label="المفضلة"
               onClick={() => requireLogin("/favorites")}
             >
@@ -466,7 +886,9 @@ function Navbar() {
               id="bena-cart-target"
               type="button"
               className="nav-icon cart-nav-icon"
-              aria-label="سلة التسوق"
+              aria-label={
+                cartCount > 0 ? `سلة التسوق، ${cartCount} عناصر` : "سلة التسوق"
+              }
               onClick={() => requireLogin("/cart")}
             >
               <ShoppingCart size={22} strokeWidth={1.8} />
@@ -478,37 +900,57 @@ function Navbar() {
               )}
             </button>
 
+            {/* MESSAGES */}
+
             <button
               type="button"
               className="nav-icon message-icon"
-              aria-label="الرسائل"
+              aria-label={
+                unreadMessagesCount > 0
+                  ? `الرسائل، ${unreadMessagesCount} غير مقروءة`
+                  : "الرسائل"
+              }
               onClick={() => requireLogin("/messages")}
             >
               <MessageCircle size={22} strokeWidth={1.8} />
 
               {currentUser && unreadMessagesCount > 0 && (
-                <span className="message-count">{unreadMessagesCount}</span>
+                <span className="message-count">
+                  {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
+                </span>
               )}
             </button>
 
             {/* NOTIFICATIONS */}
 
             {currentUser && (
-              <div className="notification-wrapper" ref={notificationRef}>
+              <div
+                className="notification-wrapper desktop-extra-action"
+                ref={notificationRef}
+              >
                 <button
                   type="button"
                   className="nav-icon notification"
-                  aria-label="الإشعارات"
+                  aria-label={
+                    unreadCount > 0
+                      ? `الإشعارات، ${unreadCount} غير مقروءة`
+                      : "الإشعارات"
+                  }
+                  aria-haspopup="true"
+                  aria-expanded={showNotifications}
                   onClick={() => {
-                    setShowNotifications(!showNotifications);
+                    setShowNotifications((current) => !current);
 
                     setShowAccountMenu(false);
+                    setShowMobileMenu(false);
                   }}
                 >
                   <Bell size={22} strokeWidth={1.8} />
 
                   {unreadCount > 0 && (
-                    <span className="notification-count">{unreadCount}</span>
+                    <span className="notification-count">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
                   )}
                 </button>
 
@@ -548,54 +990,21 @@ function Navbar() {
                       </div>
                     </div>
 
-                    {notifications.length > 0 ? (
-                      notifications.map((notification) => (
-                        <button
-                          type="button"
-                          key={notification.id}
-                          className={`notification-item ${
-                            !notification.read ? "unread" : ""
-                          }`}
-                          onClick={() => openNotification(notification)}
-                        >
-                          {!notification.read && (
-                            <div className="notification-dot"></div>
-                          )}
+                    <div className="notification-list">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification, index) =>
+                          renderNotificationItem(notification, index),
+                        )
+                      ) : (
+                        <div className="notifications-empty">
+                          <Bell size={30} strokeWidth={1.5} />
 
-                          <div className="notification-content">
-                            <strong>
-                              {notification.title || "إشعار جديد"}
-                            </strong>
+                          <strong>لا توجد إشعارات</strong>
 
-                            <p>
-                              {notification.text || notification.message || ""}
-                            </p>
-
-                            <span>
-                              {getNotificationTime(notification.createdAt)}
-                            </span>
-                          </div>
-
-                          <span
-                            className="delete-notification"
-                            onClick={(e) =>
-                              deleteNotification(e, notification.id)
-                            }
-                            title="حذف الإشعار"
-                          >
-                            ×
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="notifications-empty">
-                        <Bell size={30} strokeWidth={1.5} />
-
-                        <strong>لا توجد إشعارات</strong>
-
-                        <p>أي إشعار جديد رح يظهر هون.</p>
-                      </div>
-                    )}
+                          <p>أي إشعار جديد رح يظهر هون.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -603,16 +1012,21 @@ function Navbar() {
 
             {/* ACCOUNT */}
 
-            <div className="account-wrapper" ref={accountRef}>
+            <div className="account-wrapper desktop-account" ref={accountRef}>
               {currentUser ? (
                 <>
                   <button
                     type="button"
                     className="user-menu-button"
+                    aria-label="الحساب"
+                    aria-haspopup="true"
+                    aria-expanded={showAccountMenu}
                     onClick={() => {
-                      setShowAccountMenu(!showAccountMenu);
+                      setShowAccountMenu((current) => !current);
 
                       setShowNotifications(false);
+
+                      setShowMobileMenu(false);
                     }}
                   >
                     <span className="user-menu-avatar">
@@ -630,17 +1044,15 @@ function Navbar() {
                         </div>
 
                         <div>
-                          <strong>{currentUser.name}</strong>
+                          <strong>{currentUser.name || "مستخدم بينا"}</strong>
 
-                          <span>{currentUser.email}</span>
+                          <span>{currentUser.email || ""}</span>
                         </div>
                       </div>
 
-                      <div className="account-menu-divider"></div>
+                      <div className="account-menu-divider" />
 
-                      {/* ADMIN DASHBOARD */}
-
-                      {currentUser.role === "admin" && (
+                      {isAdmin && (
                         <button
                           type="button"
                           onClick={() => {
@@ -683,6 +1095,37 @@ function Navbar() {
                         onClick={() => {
                           setShowAccountMenu(false);
 
+                          navigate("/orders");
+                        }}
+                      >
+                        <ClipboardList size={16} />
+                        طلباتي
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+
+                          navigate("/seller-orders");
+                        }}
+                      >
+                        <PackageCheck size={16} />
+
+                        <span>الطلبات الواردة</span>
+
+                        {sellerOrdersCount > 0 && (
+                          <span className="account-menu-count">
+                            {sellerOrdersCount > 99 ? "99+" : sellerOrdersCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+
                           navigate("/messages");
                         }}
                       >
@@ -713,18 +1156,309 @@ function Navbar() {
                 </button>
               )}
             </div>
+
+            {/* MOBILE MENU */}
+
+            <div className="mobile-menu-wrapper" ref={mobileMenuRef}>
+              <button
+                type="button"
+                className={`mobile-menu-button ${
+                  showMobileMenu ? "active" : ""
+                }`}
+                aria-label={showMobileMenu ? "إغلاق القائمة" : "فتح القائمة"}
+                aria-haspopup="true"
+                aria-expanded={showMobileMenu}
+                onClick={() => {
+                  setShowMobileMenu((current) => !current);
+
+                  setShowNotifications(false);
+                  setShowAccountMenu(false);
+                }}
+              >
+                {showMobileMenu ? <X size={21} /> : <Menu size={22} />}
+
+                {currentUser && unreadCount > 0 && (
+                  <span className="mobile-menu-alert" />
+                )}
+              </button>
+
+              {showMobileMenu && (
+                <div className="mobile-menu-dropdown">
+                  {currentUser && (
+                    <div className="mobile-menu-user">
+                      <div className="mobile-menu-avatar">
+                        <UserRound size={20} />
+                      </div>
+
+                      <div>
+                        <strong>{currentUser.name || "مستخدم بينا"}</strong>
+
+                        <span>{currentUser.email || ""}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* HOME LINKS */}
+
+                  <div className="mobile-menu-section">
+                    <button type="button" onClick={goToHome}>
+                      <Home size={17} />
+                      الرئيسية
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => goToSection("categories")}
+                    >
+                      <Grid2X2 size={17} />
+                      التصنيفات
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => goToSection("latest-products")}
+                    >
+                      <Clock3 size={17} />
+                      أحدث المنتجات
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => goToSection("how-it-works")}
+                    >
+                      <Info size={17} />
+                      كيف يعمل؟
+                    </button>
+
+                    <button type="button" onClick={() => goToSection("about")}>
+                      <Info size={17} />
+                      عن بينا
+                    </button>
+                  </div>
+
+                  <div className="mobile-menu-divider" />
+
+                  {/* USER LINKS */}
+
+                  <div className="mobile-menu-section">
+                    <button
+                      type="button"
+                      onClick={() => requireLogin("/favorites")}
+                    >
+                      <Heart size={17} />
+                      المفضلة
+                    </button>
+
+                    <button type="button" onClick={() => requireLogin("/cart")}>
+                      <ShoppingCart size={17} />
+                      سلة التسوق
+                      {currentUser && cartCount > 0 && (
+                        <span className="mobile-menu-count">
+                          {cartCount > 99 ? "99+" : cartCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => requireLogin("/messages")}
+                    >
+                      <MessageCircle size={17} />
+                      الرسائل
+                      {currentUser && unreadMessagesCount > 0 && (
+                        <span className="mobile-menu-count">
+                          {unreadMessagesCount > 99
+                            ? "99+"
+                            : unreadMessagesCount}
+                        </span>
+                      )}
+                    </button>
+
+                    {currentUser && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMobileMenu(false);
+
+                          setShowAccountMenu(false);
+
+                          setShowNotifications(true);
+                        }}
+                      >
+                        <Bell size={17} />
+                        الإشعارات
+                        {unreadCount > 0 && (
+                          <span className="mobile-menu-count">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => requireLogin("/orders")}
+                    >
+                      <ClipboardList size={17} />
+                      طلباتي
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => requireLogin("/seller-orders")}
+                    >
+                      <PackageCheck size={17} />
+
+                      <span>الطلبات الواردة</span>
+
+                      {currentUser && sellerOrdersCount > 0 && (
+                        <span className="mobile-menu-count">
+                          {sellerOrdersCount > 99 ? "99+" : sellerOrdersCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => requireLogin("/my-products")}
+                    >
+                      <Package size={17} />
+                      منتجاتي
+                    </button>
+                  </div>
+
+                  <div className="mobile-menu-divider" />
+
+                  {/* ACCOUNT LINKS */}
+
+                  {currentUser ? (
+                    <div className="mobile-menu-section">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => mobileNavigate("/admin")}
+                        >
+                          <LayoutDashboard size={17} />
+                          لوحة الإدارة
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => mobileNavigate("/profile")}
+                      >
+                        <User size={17} />
+                        حسابي
+                      </button>
+
+                      <button
+                        type="button"
+                        className="mobile-logout-button"
+                        onClick={handleLogout}
+                      >
+                        <LogOut size={17} />
+                        تسجيل الخروج
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mobile-menu-section">
+                      <button
+                        type="button"
+                        className="mobile-login-button"
+                        onClick={() => mobileNavigate("/login")}
+                      >
+                        <LogIn size={17} />
+                        تسجيل الدخول
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* CLEAR NOTIFICATIONS MODAL */}
+      {/* MOBILE NOTIFICATIONS */}
+
+      {currentUser && showNotifications && (
+        <div
+          className="mobile-notification-layer"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowNotifications(false);
+            }
+          }}
+        >
+          <div className="mobile-notification-panel">
+            <div className="mobile-notification-panel-header">
+              <div>
+                <strong>الإشعارات</strong>
+
+                <span>
+                  {unreadCount > 0 ? `${unreadCount} جديدة` : "لا يوجد جديد"}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                aria-label="إغلاق الإشعارات"
+                onClick={() => setShowNotifications(false)}
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="mobile-notification-actions">
+              {unreadCount > 0 && (
+                <button type="button" onClick={markAllAsRead}>
+                  تحديد الكل كمقروء
+                </button>
+              )}
+
+              {notifications.length > 0 && (
+                <button type="button" onClick={openClearModal}>
+                  مسح الكل
+                </button>
+              )}
+            </div>
+
+            <div className="mobile-notification-list">
+              {notifications.length > 0 ? (
+                notifications.map((notification, index) =>
+                  renderNotificationItem(notification, index, true),
+                )
+              ) : (
+                <div className="notifications-empty">
+                  <Bell size={30} strokeWidth={1.5} />
+
+                  <strong>لا توجد إشعارات</strong>
+
+                  <p>أي إشعار جديد رح يظهر هون.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CLEAR MODAL */}
 
       {showClearModal && (
-        <div className="clear-notifications-overlay" onClick={closeClearModal}>
+        <div
+          className="clear-notifications-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeClearModal();
+            }
+          }}
+        >
           <div
             className="clear-notifications-modal"
-            onClick={(e) => e.stopPropagation()}
             dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-notifications-title"
           >
             <button
               type="button"
@@ -739,7 +1473,7 @@ function Navbar() {
               <TriangleAlert size={30} />
             </div>
 
-            <h2>مسح الإشعارات؟</h2>
+            <h2 id="clear-notifications-title">مسح الإشعارات؟</h2>
 
             <p>
               هل أنت متأكد من مسح جميع الإشعارات؟

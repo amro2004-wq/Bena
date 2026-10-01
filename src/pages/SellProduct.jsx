@@ -1,6 +1,6 @@
 import "./SellProduct.css";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Toast from "../components/Toast";
@@ -15,12 +15,75 @@ import {
   PackageCheck,
 } from "lucide-react";
 
+const CATEGORIES = [
+  "إلكترونيات",
+  "موبايلات",
+  "كمبيوتر ولابتوب",
+  "ألعاب وإكسسوارات",
+  "أجهزة منزلية",
+  "أثاث",
+  "ملابس",
+  "أحذية",
+  "حقائب وإكسسوارات",
+  "ساعات ومجوهرات",
+  "عناية شخصية وتجميل",
+  "أطفال ورضع",
+  "ألعاب أطفال",
+  "كتب وقرطاسية",
+  "رياضة ولياقة",
+  "سيارات وقطع غيار",
+  "دراجات",
+  "أدوات ومعدات",
+  "مستلزمات منزلية",
+  "حديقة وزراعة",
+  "حيوانات ومستلزماتها",
+  "مأكولات ومنتجات منزلية",
+  "هوايات ومقتنيات",
+  "أخرى",
+];
+
+const CONDITIONS = ["جديد", "ممتاز", "مستخدم"];
+
+const LOCATIONS = ["غزة", "شمال غزة", "دير البلح", "خان يونس", "رفح"];
+
 function SellProduct() {
   const navigate = useNavigate();
 
+  const toastTimerRef = useRef(null);
+  const redirectTimersRef = useRef([]);
+
+  /* STORAGE */
+
+  const readStorage = (key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   /* USER */
 
-  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+  const [currentUser] = useState(() => {
+    const savedCurrentUser = readStorage("benaCurrentUser", null);
+
+    if (
+      !savedCurrentUser ||
+      typeof savedCurrentUser !== "object" ||
+      Array.isArray(savedCurrentUser)
+    ) {
+      return null;
+    }
+
+    return savedCurrentUser;
+  });
+
+  const userId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
 
   /* FORM */
 
@@ -34,6 +97,9 @@ function SellProduct() {
   });
 
   const [imagePreview, setImagePreview] = useState("");
+  const [imageError, setImageError] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* TOAST */
 
@@ -44,24 +110,58 @@ function SellProduct() {
   });
 
   const showToast = (message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
   };
 
+  /* TIMERS */
+
+  const addRedirectTimer = (callback, delay) => {
+    const timerId = setTimeout(() => {
+      redirectTimersRef.current = redirectTimersRef.current.filter(
+        (currentTimerId) => currentTimerId !== timerId,
+      );
+
+      callback();
+    }, delay);
+
+    redirectTimersRef.current.push(timerId);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+
+      redirectTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+
+      redirectTimersRef.current = [];
+    };
+  }, []);
+
   /* CHANGE */
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
     setFormData((current) => ({
       ...current,
@@ -71,8 +171,8 @@ function SellProduct() {
 
   /* IMAGE */
 
-  const handleImage = (e) => {
-    const file = e.target.files?.[0];
+  const handleImage = (event) => {
+    const file = event.target.files?.[0];
 
     if (!file) {
       return;
@@ -83,29 +183,39 @@ function SellProduct() {
     if (!allowedTypes.includes(file.type)) {
       showToast("صيغة الصورة غير مدعومة، استخدم PNG أو JPG أو WEBP", "error");
 
-      e.target.value = "";
+      event.target.value = "";
 
       return;
     }
 
-    if (file.size > 1500000) {
-      showToast("حجم الصورة كبير، اختار صورة أقل من 1.5MB", "error");
+    const maxImageSize = 1.5 * 1024 * 1024;
 
-      e.target.value = "";
+    if (file.size > maxImageSize) {
+      showToast("حجم الصورة كبير، اختر صورة أقل من 1.5MB", "error");
+
+      event.target.value = "";
 
       return;
     }
+
+    setImageError(false);
 
     const reader = new FileReader();
 
-    reader.onloadend = () => {
-      setImagePreview(reader.result);
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setImagePreview(reader.result);
+        setImageError(false);
+      }
     };
 
     reader.onerror = () => {
+      setImagePreview("");
+      setImageError(false);
+
       showToast("حدث خطأ أثناء قراءة الصورة", "error");
 
-      e.target.value = "";
+      event.target.value = "";
     };
 
     reader.readAsDataURL(file);
@@ -113,15 +223,19 @@ function SellProduct() {
 
   /* SUBMIT */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
 
     /* CHECK USER */
 
-    if (!currentUser) {
+    if (!userId || !currentUser) {
       showToast("سجل دخولك أولاً لنشر منتج", "error");
 
-      setTimeout(() => {
+      addRedirectTimer(() => {
         navigate("/login", {
           state: {
             from: "/sell",
@@ -135,18 +249,54 @@ function SellProduct() {
     const { name, category, condition, price, location, description } =
       formData;
 
+    const cleanName = name.trim();
+    const cleanDescription = description.trim();
+
     /* REQUIRED FIELDS */
 
     if (
-      !name.trim() ||
+      !cleanName ||
       !category ||
       !condition ||
       !price ||
       !location ||
-      !description.trim() ||
-      !imagePreview
+      !cleanDescription ||
+      !imagePreview ||
+      imageError
     ) {
       showToast("يرجى تعبئة جميع الحقول وإضافة صورة للمنتج", "error");
+
+      return;
+    }
+
+    /* NAME */
+
+    if (cleanName.length < 2) {
+      showToast("اسم المنتج قصير جدًا", "error");
+
+      return;
+    }
+
+    /* CATEGORY */
+
+    if (!CATEGORIES.includes(category)) {
+      showToast("يرجى اختيار تصنيف صحيح", "error");
+
+      return;
+    }
+
+    /* CONDITION */
+
+    if (!CONDITIONS.includes(condition)) {
+      showToast("يرجى اختيار حالة صحيحة للمنتج", "error");
+
+      return;
+    }
+
+    /* LOCATION */
+
+    if (!LOCATIONS.includes(location)) {
+      showToast("يرجى اختيار منطقة صحيحة", "error");
 
       return;
     }
@@ -161,20 +311,11 @@ function SellProduct() {
       return;
     }
 
-    /* CONDITION */
-
-    const allowedConditions = ["جديد", "ممتاز", "مستخدم"];
-
-    if (!allowedConditions.includes(condition)) {
-      showToast("يرجى اختيار حالة صحيحة للمنتج", "error");
-
-      return;
-    }
-
     /* PRODUCTS */
 
-    const savedProducts =
-      JSON.parse(localStorage.getItem("benaProducts")) || [];
+    const storedProducts = readStorage("benaProducts", []);
+
+    const savedProducts = Array.isArray(storedProducts) ? storedProducts : [];
 
     const now = new Date().toISOString();
 
@@ -182,75 +323,78 @@ function SellProduct() {
 
     const newProduct = {
       id: productId,
-
-      sellerId: Number(currentUser.id),
-
-      sellerName: currentUser.name,
-
-      name: name.trim(),
-
+      sellerId: currentUser.id,
+      sellerName: currentUser.name || "مستخدم بينا",
+      name: cleanName,
       category,
-
       condition,
-
       conditionClass:
         condition === "جديد"
           ? "new"
           : condition === "ممتاز"
             ? "excellent"
             : "used",
-
       price: numericPrice,
-
       location,
-
-      description: description.trim(),
-
+      description: cleanDescription,
       image: imagePreview,
-
       createdAt: now,
     };
 
-    /* SAVE PRODUCT */
+    setIsSubmitting(true);
 
-    localStorage.setItem(
-      "benaProducts",
-      JSON.stringify([newProduct, ...savedProducts]),
-    );
+    try {
+      /* SAVE PRODUCT */
 
-    /* NOTIFICATION */
+      localStorage.setItem(
+        "benaProducts",
+        JSON.stringify([newProduct, ...savedProducts]),
+      );
 
-    const savedNotifications =
-      JSON.parse(localStorage.getItem("benaNotifications")) || [];
+      window.dispatchEvent(new Event("bena-products-updated"));
 
-    const newNotification = {
-      id: productId + 1,
+      /* NOTIFICATION */
 
-      userId: Number(currentUser.id),
+      const storedNotifications = readStorage("benaNotifications", []);
 
-      type: "product",
+      const savedNotifications = Array.isArray(storedNotifications)
+        ? storedNotifications
+        : [];
 
-      title: "تم نشر المنتج",
+      const notificationText = `تم نشر منتج "${newProduct.name}" بنجاح على بينا.`;
 
-      text: `تم نشر منتج "${newProduct.name}" بنجاح على بينا.`,
+      const newNotification = {
+        id: `${productId}_published`,
+        userId: currentUser.id,
+        type: "product",
+        title: "تم نشر المنتج",
+        text: notificationText,
+        message: notificationText,
+        createdAt: now,
+        read: false,
+        link: `/products/${newProduct.id}`,
+        productId: newProduct.id,
+      };
 
-      createdAt: now,
+      localStorage.setItem(
+        "benaNotifications",
+        JSON.stringify([newNotification, ...savedNotifications]),
+      );
 
-      read: false,
+      window.dispatchEvent(new Event("bena-notifications-updated"));
 
-      link: `/products/${newProduct.id}`,
-    };
+      showToast("تم نشر المنتج بنجاح ✓", "success");
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify([newNotification, ...savedNotifications]),
-    );
+      addRedirectTimer(() => {
+        navigate("/products", {
+          replace: true,
+        });
+      }, 900);
+    } catch {
+      setIsSubmitting(false);
 
-    showToast("تم نشر المنتج بنجاح ✓", "success");
-
-    setTimeout(() => {
-      navigate("/products");
-    }, 900);
+      showToast("تعذر نشر المنتج، حاول مرة أخرى", "error");
+    }
   };
 
   return (
@@ -261,10 +405,12 @@ function SellProduct() {
         <button
           type="button"
           className="sell-back"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
+          disabled={isSubmitting}
         >
-          <ArrowRight size={18} />
-          العودة
+          <ArrowRight size={19} />
+
+          <span>العودة للرئيسية</span>
         </button>
 
         <div className="sell-heading">
@@ -275,26 +421,36 @@ function SellProduct() {
           <p>أضف معلومات واضحة وصورة جيدة حتى يظهر منتجك بشكل أفضل للمشترين.</p>
         </div>
 
-        <form className="sell-form" onSubmit={handleSubmit}>
+        <form className="sell-form" onSubmit={handleSubmit} noValidate>
           <div className="sell-form-grid">
             <div className="sell-form-main">
               {/* IMAGE */}
 
               <div className="sell-card">
                 <div className="sell-card-title">
-                  <ImagePlus size={19} />
+                  <ImagePlus size={19} aria-hidden="true" />
 
                   <h3>صورة المنتج</h3>
                 </div>
 
-                <label className="image-upload">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="معاينة المنتج" />
+                <label
+                  className={`image-upload ${isSubmitting ? "disabled" : ""}`}
+                >
+                  {imagePreview && !imageError ? (
+                    <img
+                      src={imagePreview}
+                      alt="معاينة المنتج"
+                      onError={() => setImageError(true)}
+                    />
                   ) : (
                     <div className="image-upload-placeholder">
-                      <Upload size={30} />
+                      <Upload size={30} aria-hidden="true" />
 
-                      <strong>اضغط لإضافة صورة</strong>
+                      <strong>
+                        {imageError
+                          ? "تعذر عرض الصورة، اختر صورة أخرى"
+                          : "اضغط لإضافة صورة"}
+                      </strong>
 
                       <span>PNG أو JPG أو WEBP - بحد أقصى 1.5MB</span>
                     </div>
@@ -304,6 +460,8 @@ function SellProduct() {
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     onChange={handleImage}
+                    disabled={isSubmitting}
+                    aria-label="اختيار صورة المنتج"
                   />
                 </label>
               </div>
@@ -312,117 +470,80 @@ function SellProduct() {
 
               <div className="sell-card">
                 <div className="sell-card-title">
-                  <Tag size={19} />
+                  <Tag size={19} aria-hidden="true" />
 
                   <h3>معلومات المنتج</h3>
                 </div>
 
                 <div className="form-group">
-                  <label>اسم المنتج</label>
+                  <label htmlFor="product-name">اسم المنتج</label>
 
                   <input
+                    id="product-name"
                     type="text"
                     name="name"
                     placeholder="مثال: سماعات لاسلكية"
                     value={formData.name}
                     onChange={handleChange}
+                    disabled={isSubmitting}
+                    maxLength={100}
+                    autoComplete="off"
                   />
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>التصنيف</label>
+                    <label htmlFor="product-category">التصنيف</label>
 
                     <select
+                      id="product-category"
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                     >
                       <option value="">اختر التصنيف</option>
 
-                      <option value="إلكترونيات">إلكترونيات</option>
-
-                      <option value="موبايلات">موبايلات</option>
-
-                      <option value="كمبيوتر ولابتوب">كمبيوتر ولابتوب</option>
-
-                      <option value="ألعاب وإكسسوارات">ألعاب وإكسسوارات</option>
-
-                      <option value="أجهزة منزلية">أجهزة منزلية</option>
-
-                      <option value="أثاث">أثاث</option>
-
-                      <option value="ملابس">ملابس</option>
-
-                      <option value="أحذية">أحذية</option>
-
-                      <option value="حقائب وإكسسوارات">حقائب وإكسسوارات</option>
-
-                      <option value="ساعات ومجوهرات">ساعات ومجوهرات</option>
-
-                      <option value="عناية شخصية وتجميل">
-                        عناية شخصية وتجميل
-                      </option>
-
-                      <option value="أطفال ورضع">أطفال ورضع</option>
-
-                      <option value="ألعاب أطفال">ألعاب أطفال</option>
-
-                      <option value="كتب وقرطاسية">كتب وقرطاسية</option>
-
-                      <option value="رياضة ولياقة">رياضة ولياقة</option>
-
-                      <option value="سيارات وقطع غيار">سيارات وقطع غيار</option>
-
-                      <option value="دراجات">دراجات</option>
-
-                      <option value="أدوات ومعدات">أدوات ومعدات</option>
-
-                      <option value="مستلزمات منزلية">مستلزمات منزلية</option>
-
-                      <option value="حديقة وزراعة">حديقة وزراعة</option>
-
-                      <option value="حيوانات ومستلزماتها">
-                        حيوانات ومستلزماتها
-                      </option>
-
-                      <option value="مأكولات ومنتجات منزلية">
-                        مأكولات ومنتجات منزلية
-                      </option>
-
-                      <option value="هوايات ومقتنيات">هوايات ومقتنيات</option>
-
-                      <option value="أخرى">أخرى</option>
+                      {CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div className="form-group">
-                    <label>حالة المنتج</label>
+                    <label htmlFor="product-condition">حالة المنتج</label>
 
                     <select
+                      id="product-condition"
                       name="condition"
                       value={formData.condition}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                     >
                       <option value="">اختر الحالة</option>
 
-                      <option value="جديد">جديد</option>
-
-                      <option value="ممتاز">ممتاز</option>
-
-                      <option value="مستخدم">مستخدم</option>
+                      {CONDITIONS.map((condition) => (
+                        <option key={condition} value={condition}>
+                          {condition}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label>وصف المنتج</label>
+                  <label htmlFor="product-description">وصف المنتج</label>
 
                   <textarea
+                    id="product-description"
                     name="description"
                     placeholder="اكتب وصفًا واضحًا للمنتج..."
                     value={formData.description}
                     onChange={handleChange}
+                    disabled={isSubmitting}
+                    maxLength={1000}
                   />
                 </div>
               </div>
@@ -433,23 +554,26 @@ function SellProduct() {
             <aside className="sell-form-side">
               <div className="sell-card">
                 <div className="sell-card-title">
-                  <CircleDollarSign size={19} />
+                  <CircleDollarSign size={19} aria-hidden="true" />
 
                   <h3>السعر والموقع</h3>
                 </div>
 
                 <div className="form-group">
-                  <label>السعر</label>
+                  <label htmlFor="product-price">السعر</label>
 
                   <div className="price-input">
                     <input
+                      id="product-price"
                       type="number"
                       name="price"
                       min="1"
                       step="1"
+                      inputMode="numeric"
                       placeholder="0"
                       value={formData.price}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                     />
 
                     <span>₪</span>
@@ -457,27 +581,25 @@ function SellProduct() {
                 </div>
 
                 <div className="form-group">
-                  <label>
-                    <MapPin size={14} />
+                  <label htmlFor="product-location">
+                    <MapPin size={14} aria-hidden="true" />
                     المنطقة
                   </label>
 
                   <select
+                    id="product-location"
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
+                    disabled={isSubmitting}
                   >
                     <option value="">اختر المنطقة</option>
 
-                    <option value="غزة">غزة</option>
-
-                    <option value="شمال غزة">شمال غزة</option>
-
-                    <option value="دير البلح">دير البلح</option>
-
-                    <option value="خان يونس">خان يونس</option>
-
-                    <option value="رفح">رفح</option>
+                    {LOCATIONS.map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -485,7 +607,7 @@ function SellProduct() {
               {/* TIP */}
 
               <div className="sell-help-card">
-                <PackageCheck size={22} />
+                <PackageCheck size={22} aria-hidden="true" />
 
                 <div>
                   <strong>نصيحة للبيع أسرع</strong>
@@ -494,8 +616,12 @@ function SellProduct() {
                 </div>
               </div>
 
-              <button type="submit" className="publish-btn">
-                نشر المنتج
+              <button
+                type="submit"
+                className="publish-btn"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "جاري نشر المنتج..." : "نشر المنتج"}
               </button>
             </aside>
           </div>

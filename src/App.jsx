@@ -1,30 +1,48 @@
-import { Routes, Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
+
+/* PUBLIC PAGES */
 
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetails from "./pages/ProductDetails";
-import SellProduct from "./pages/SellProduct";
-import Messages from "./pages/Messages";
-import AllMessages from "./pages/AllMessages";
-import Favorites from "./pages/Favorites";
-import Profile from "./pages/Profile";
-import MyProducts from "./pages/MyProducts";
-import EditProduct from "./pages/EditProduct";
 import InfoPage from "./pages/InfoPage";
 import NotFound from "./pages/NotFound";
+
+/* AUTH PAGES */
+
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
-import Cart from "./pages/Cart";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-import PublicRoute from "./components/PublicRoute";
-import AdminRoute from "./components/AdminRoute";
+/* USER PAGES */
+
+import SellProduct from "./pages/SellProduct";
+import Favorites from "./pages/Favorites";
+import Cart from "./pages/Cart";
+import AllMessages from "./pages/AllMessages";
+import Messages from "./pages/Messages";
+import Profile from "./pages/Profile";
+import MyProducts from "./pages/MyProducts";
+import EditProduct from "./pages/EditProduct";
+import Checkout from "./pages/Checkout";
+import MyOrders from "./pages/MyOrders";
+import OrderDetails from "./pages/OrderDetails";
+import SellerOrders from "./pages/SellerOrders";
+import SellerOrderDetails from "./pages/SellerOrderDetails";
+
+/* ADMIN PAGES */
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminProducts from "./pages/AdminProducts";
+import AdminOrders from "./pages/AdminOrders";
 import AdminMessages from "./pages/AdminMessages";
+
+/* ROUTE GUARDS */
+
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
+import AdminRoute from "./components/AdminRoute";
 
 function App() {
   return (
@@ -39,7 +57,7 @@ function App() {
 
       <Route path="/info/:page" element={<InfoPage />} />
 
-      {/* GUEST ONLY */}
+      {/* GUEST */}
 
       <Route
         path="/register"
@@ -68,7 +86,7 @@ function App() {
         }
       />
 
-      {/* PROTECTED */}
+      {/* USER */}
 
       <Route
         path="/sell"
@@ -142,6 +160,51 @@ function App() {
         }
       />
 
+      <Route
+        path="/checkout"
+        element={
+          <ProtectedRoute>
+            <Checkout />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/orders"
+        element={
+          <ProtectedRoute>
+            <MyOrders />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/seller-orders"
+        element={
+          <ProtectedRoute>
+            <SellerOrders />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/seller-orders/:id"
+        element={
+          <ProtectedRoute>
+            <SellerOrderDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/orders/:id"
+        element={
+          <ProtectedRoute>
+            <OrderDetails />
+          </ProtectedRoute>
+        }
+      />
+
       {/* ADMIN */}
 
       <Route
@@ -167,6 +230,15 @@ function App() {
         element={
           <AdminRoute>
             <AdminProducts />
+          </AdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/orders"
+        element={
+          <AdminRoute>
+            <AdminOrders />
           </AdminRoute>
         }
       />

@@ -1,15 +1,35 @@
 /* CART STORAGE */
 
+const getStoredCart = () => {
+  try {
+    const savedCart = JSON.parse(localStorage.getItem("benaCart")) || {};
+
+    if (
+      !savedCart ||
+      typeof savedCart !== "object" ||
+      Array.isArray(savedCart)
+    ) {
+      return {};
+    }
+
+    return savedCart;
+  } catch {
+    return {};
+  }
+};
+
+/* GET CART */
+
 export const getCart = (userId) => {
   if (!userId) {
     return [];
   }
 
-  const savedCart = JSON.parse(localStorage.getItem("benaCart")) || {};
+  const cartObject = getStoredCart();
 
-  const cartObject = Array.isArray(savedCart) ? {} : savedCart;
+  const userCart = cartObject[String(userId)];
 
-  return cartObject[String(userId)] || [];
+  return Array.isArray(userCart) ? userCart : [];
 };
 
 /* SAVE CART */
@@ -19,22 +39,26 @@ export const saveCart = (userId, cart) => {
     return;
   }
 
-  const savedCart = JSON.parse(localStorage.getItem("benaCart")) || {};
+  const cartObject = getStoredCart();
 
-  const cartObject = Array.isArray(savedCart) ? {} : savedCart;
+  const safeCart = Array.isArray(cart) ? cart : [];
 
   const updatedCart = {
     ...cartObject,
-    [String(userId)]: cart,
+    [String(userId)]: safeCart,
   };
 
-  localStorage.setItem("benaCart", JSON.stringify(updatedCart));
+  try {
+    localStorage.setItem("benaCart", JSON.stringify(updatedCart));
+  } catch {
+    return;
+  }
 
   window.dispatchEvent(
     new CustomEvent("bena-cart-updated", {
       detail: {
         userId: String(userId),
-        cart,
+        cart: safeCart,
       },
     }),
   );
@@ -43,9 +67,18 @@ export const saveCart = (userId, cart) => {
 /* ADD PRODUCT */
 
 export const addToCart = (userId, productId) => {
+  if (!userId || productId === undefined || productId === null) {
+    return {
+      added: false,
+      cart: [],
+    };
+  }
+
   const cart = getCart(userId);
 
-  const exists = cart.some((id) => Number(id) === Number(productId));
+  const productKey = String(productId);
+
+  const exists = cart.some((id) => String(id) === productKey);
 
   if (exists) {
     return {
@@ -67,9 +100,15 @@ export const addToCart = (userId, productId) => {
 /* REMOVE PRODUCT */
 
 export const removeFromCart = (userId, productId) => {
+  if (!userId) {
+    return [];
+  }
+
   const cart = getCart(userId);
 
-  const updatedCart = cart.filter((id) => Number(id) !== Number(productId));
+  const productKey = String(productId);
+
+  const updatedCart = cart.filter((id) => String(id) !== productKey);
 
   saveCart(userId, updatedCart);
 
@@ -86,7 +125,6 @@ export const animateProductToCart = (imageElement) => {
   }
 
   const imageRect = imageElement.getBoundingClientRect();
-
   const cartRect = cartTarget.getBoundingClientRect();
 
   const flyingImage = imageElement.cloneNode(true);

@@ -1,12 +1,21 @@
 import "./Messages.css";
 
-import { defaultProducts } from "../data/products";
-
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { ArrowRight, Send, UserRound, ShieldCheck, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  Send,
+  UserRound,
+  ShieldCheck,
+  MapPin,
+  ImageOff,
+  MessageCircle,
+  Clock3,
+} from "lucide-react";
+
+import { defaultProducts } from "../data/products";
 
 function Messages() {
   const { id } = useParams();
@@ -17,30 +26,82 @@ function Messages() {
 
   const messagesEndRef = useRef(null);
 
+  /* STORAGE */
+
+  const readStorage = useCallback((key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
   /* USER */
 
-  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+  const getCurrentUser = useCallback(() => {
+    const user = readStorage("benaCurrentUser", null);
+
+    if (!user || typeof user !== "object" || Array.isArray(user)) {
+      return null;
+    }
+
+    return user;
+  }, [readStorage]);
+
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+
+  const currentUserId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
 
   /* PRODUCTS */
 
-  const savedProducts = JSON.parse(localStorage.getItem("benaProducts")) || [];
+  const getProducts = useCallback(() => {
+    const saved = readStorage("benaProducts", []);
 
-  const products = [...savedProducts, ...defaultProducts];
+    const savedProducts = Array.isArray(saved) ? saved : [];
 
-  const product = products.find((item) => Number(item.id) === Number(id));
+    return [...savedProducts, ...defaultProducts];
+  }, [readStorage]);
+
+  const [products, setProducts] = useState(getProducts);
+
+  const product = useMemo(() => {
+    return (
+      products.find((item) => item && String(item.id) === String(id)) || null
+    );
+  }, [products, id]);
 
   /* USERS */
 
-  const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+  const getUsers = useCallback(() => {
+    const savedUsers = readStorage("benaUsers", []);
+
+    return Array.isArray(savedUsers) ? savedUsers : [];
+  }, [readStorage]);
+
+  const [users, setUsers] = useState(getUsers);
 
   /* SELLER */
 
-  const sellerId = product?.sellerId ? Number(product.sellerId) : null;
+  const sellerId =
+    product?.sellerId !== undefined && product?.sellerId !== null
+      ? String(product.sellerId)
+      : null;
 
-  const seller = users.find((user) => Number(user.id) === Number(sellerId));
+  const seller = useMemo(() => {
+    if (!sellerId) {
+      return null;
+    }
+
+    return users.find((user) => user && String(user.id) === sellerId) || null;
+  }, [users, sellerId]);
 
   const isSeller =
-    currentUser && sellerId && Number(currentUser.id) === Number(sellerId);
+    Boolean(currentUserId) && Boolean(sellerId) && currentUserId === sellerId;
 
   /* BUYER */
 
@@ -48,77 +109,181 @@ function Messages() {
 
   const buyerId = isSeller
     ? buyerFromUrl
-      ? Number(buyerFromUrl)
+      ? String(buyerFromUrl)
       : null
-    : currentUser
-      ? Number(currentUser.id)
-      : null;
+    : currentUserId;
 
-  const buyer = users.find((user) => Number(user.id) === Number(buyerId));
+  const buyer = useMemo(() => {
+    if (!buyerId) {
+      return null;
+    }
+
+    return (
+      users.find((user) => user && String(user.id) === String(buyerId)) || null
+    );
+  }, [users, buyerId]);
 
   /* CONVERSATION */
 
   const conversationId = product && buyerId ? `${product.id}_${buyerId}` : null;
 
-  const savedChats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+  const getChats = useCallback(() => {
+    const chats = readStorage("benaMessages", {});
 
-  const existingConversation = conversationId
-    ? savedChats[conversationId]
-    : null;
+    if (!chats || typeof chats !== "object" || Array.isArray(chats)) {
+      return {};
+    }
+
+    return chats;
+  }, [readStorage]);
+
+  const getConversation = useCallback(
+    (targetConversationId) => {
+      if (!targetConversationId) {
+        return null;
+      }
+
+      const chats = getChats();
+
+      const targetConversation = chats[targetConversationId];
+
+      if (
+        !targetConversation ||
+        typeof targetConversation !== "object" ||
+        Array.isArray(targetConversation)
+      ) {
+        return null;
+      }
+
+      return targetConversation;
+    },
+    [getChats],
+  );
+
+  const [conversation, setConversation] = useState(() =>
+    getConversation(conversationId),
+  );
 
   /* OTHER USER */
 
   const otherUser = isSeller ? buyer : seller;
 
-  /* STATE */
+  const otherUserName =
+    otherUser?.name || (isSeller ? "مشتري على بينا" : "بائع على بينا");
+
+  /* MESSAGE STATE */
 
   const [message, setMessage] = useState("");
 
-  const [messages, setMessages] = useState([]);
+  const messages = useMemo(() => {
+    if (conversation && Array.isArray(conversation.messages)) {
+      return conversation.messages;
+    }
 
-  /* LOAD CHAT */
+    return [];
+  }, [conversation]);
+
+  /* REFRESH */
+
+  const refreshData = useCallback(() => {
+    setCurrentUser(getCurrentUser());
+
+    setProducts(getProducts());
+
+    setUsers(getUsers());
+
+    setConversation(getConversation(conversationId));
+  }, [getCurrentUser, getProducts, getUsers, getConversation, conversationId]);
 
   useEffect(() => {
-    if (!conversationId) {
-      setMessages([]);
+    refreshData();
+  }, [refreshData]);
 
-      return;
-    }
+  /* EVENTS */
 
-    const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (
+        !event.key ||
+        event.key === "benaMessages" ||
+        event.key === "benaProducts" ||
+        event.key === "benaUsers" ||
+        event.key === "benaCurrentUser"
+      ) {
+        refreshData();
+      }
+    };
 
-    const conversation = chats[conversationId];
+    const handleMessagesUpdated = () => {
+      refreshData();
+    };
 
-    if (
-      conversation &&
-      !Array.isArray(conversation) &&
-      Array.isArray(conversation.messages)
-    ) {
-      setMessages(conversation.messages);
-    } else {
-      setMessages([]);
-    }
-  }, [conversationId]);
+    const handleProductsUpdated = () => {
+      refreshData();
+    };
+
+    const handleUsersUpdated = () => {
+      refreshData();
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    window.addEventListener("bena-messages-updated", handleMessagesUpdated);
+
+    window.addEventListener("bena-products-updated", handleProductsUpdated);
+
+    window.addEventListener("bena-users-updated", handleUsersUpdated);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+
+      window.removeEventListener(
+        "bena-messages-updated",
+        handleMessagesUpdated,
+      );
+
+      window.removeEventListener(
+        "bena-products-updated",
+        handleProductsUpdated,
+      );
+
+      window.removeEventListener("bena-users-updated", handleUsersUpdated);
+    };
+  }, [refreshData]);
 
   /* READ NOTIFICATIONS */
 
   useEffect(() => {
-    if (!currentUser || !conversationId) {
+    if (!currentUserId || !conversationId) {
       return;
     }
 
-    const savedNotifications =
-      JSON.parse(localStorage.getItem("benaNotifications")) || [];
+    const savedNotifications = readStorage("benaNotifications", []);
+
+    if (!Array.isArray(savedNotifications)) {
+      return;
+    }
 
     let changed = false;
 
     const updatedNotifications = savedNotifications.map((notification) => {
-      const belongsToUser =
-        Number(notification.userId) === Number(currentUser.id);
+      if (!notification || typeof notification !== "object") {
+        return notification;
+      }
 
-      const sameConversation = notification.conversationId === conversationId;
+      const belongsToUser = String(notification.userId) === currentUserId;
 
-      if (belongsToUser && sameConversation && !notification.read) {
+      const sameConversation =
+        String(notification.conversationId || "") === String(conversationId);
+
+      const isMessageNotification = notification.type === "message";
+
+      if (
+        belongsToUser &&
+        sameConversation &&
+        isMessageNotification &&
+        !notification.read
+      ) {
         changed = true;
 
         return {
@@ -130,71 +295,116 @@ function Messages() {
       return notification;
     });
 
-    if (changed) {
-      localStorage.setItem(
-        "benaNotifications",
-        JSON.stringify(updatedNotifications),
-      );
+    if (!changed) {
+      return;
     }
-  }, [conversationId, currentUser?.id]);
+
+    localStorage.setItem(
+      "benaNotifications",
+      JSON.stringify(updatedNotifications),
+    );
+
+    window.dispatchEvent(new Event("bena-notifications-updated"));
+  }, [conversationId, currentUserId, readStorage]);
 
   /* AUTO SCROLL */
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
+      block: "end",
     });
   }, [messages]);
 
+  /* PRODUCT IMAGE */
+
+  const getProductImage = (targetProduct) => {
+    if (targetProduct?.image) {
+      return targetProduct.image;
+    }
+
+    if (
+      Array.isArray(targetProduct?.images) &&
+      targetProduct.images.length > 0
+    ) {
+      return targetProduct.images[0];
+    }
+
+    return null;
+  };
+
+  /* PRICE */
+
+  const getProductPrice = (targetProduct) => {
+    const price = Number(targetProduct?.price);
+
+    return Number.isFinite(price) ? price : 0;
+  };
+
+  /* MESSAGE TIME */
+
+  const formatMessageTime = (value) => {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    return date.toLocaleTimeString("ar-EG", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
   /* SEND MESSAGE */
 
-  const sendMessage = (e) => {
-    e.preventDefault();
+  const sendMessage = (event) => {
+    event.preventDefault();
 
-    if (!currentUser || !product || !conversationId) {
+    const trimmedMessage = message.trim();
+
+    if (
+      !trimmedMessage ||
+      !currentUserId ||
+      !product ||
+      !conversationId ||
+      !sellerId ||
+      !buyerId
+    ) {
       return;
     }
 
-    if (!sellerId || !buyerId) {
-      return;
-    }
+    const userIsSeller = currentUserId === String(sellerId);
 
-    const currentUserId = Number(currentUser.id);
-
-    const userIsSeller = currentUserId === Number(sellerId);
-
-    const userIsBuyer = currentUserId === Number(buyerId);
+    const userIsBuyer = currentUserId === String(buyerId);
 
     if (!userIsSeller && !userIsBuyer) {
       return;
     }
 
-    /* VALIDATE BUYER */
-
-    if (!buyer) {
+    if (!buyer || !seller) {
       return;
     }
 
-    /* VALIDATE SELLER */
+    const chats = getChats();
 
-    if (!seller) {
+    const latestConversation = chats[conversationId];
+
+    if (isSeller && !latestConversation) {
       return;
     }
 
-    /*
-      Seller can only reply to an
-      already existing conversation.
-    */
-
-    if (isSeller && !existingConversation) {
-      return;
-    }
-
-    const trimmedMessage = message.trim();
-
-    if (!trimmedMessage) {
-      return;
-    }
+    const latestMessages =
+      latestConversation &&
+      typeof latestConversation === "object" &&
+      !Array.isArray(latestConversation) &&
+      Array.isArray(latestConversation.messages)
+        ? latestConversation.messages
+        : [];
 
     const now = new Date().toISOString();
 
@@ -203,70 +413,95 @@ function Messages() {
 
       text: trimmedMessage,
 
-      senderId: Number(currentUser.id),
+      senderId: currentUserId,
 
       createdAt: now,
     };
 
-    const updatedMessages = [...messages, newMessage];
+    const updatedMessages = [...latestMessages, newMessage];
 
-    setMessages(updatedMessages);
-
-    const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
-
-    const conversation = {
+    const updatedConversation = {
       id: conversationId,
 
-      productId: Number(product.id),
+      productId: String(product.id),
 
-      sellerId: Number(sellerId),
+      sellerId: String(sellerId),
 
-      buyerId: Number(buyerId),
+      buyerId: String(buyerId),
 
       messages: updatedMessages,
 
       updatedAt: now,
     };
 
-    chats[conversationId] = conversation;
+    const updatedChats = {
+      ...chats,
 
-    localStorage.setItem("benaMessages", JSON.stringify(chats));
+      [conversationId]: updatedConversation,
+    };
+
+    localStorage.setItem("benaMessages", JSON.stringify(updatedChats));
+
+    setConversation(updatedConversation);
+
+    setMessage("");
+
+    window.dispatchEvent(new Event("bena-messages-updated"));
 
     /* NOTIFICATION */
 
-    const receiverId = isSeller ? Number(buyerId) : Number(sellerId);
+    const receiverId = isSeller ? String(buyerId) : String(sellerId);
 
-    if (receiverId && receiverId !== Number(currentUser.id)) {
-      const notifications =
-        JSON.parse(localStorage.getItem("benaNotifications")) || [];
-
-      const notification = {
-        id: Date.now() + 1,
-
-        userId: receiverId,
-
-        conversationId,
-
-        type: "message",
-
-        title: "رسالة جديدة",
-
-        message: `رسالة جديدة بخصوص ${product.name}`,
-
-        link: `/messages/${product.id}?buyer=${buyerId}`,
-
-        read: false,
-
-        createdAt: now,
-      };
-
-      localStorage.setItem(
-        "benaNotifications",
-        JSON.stringify([notification, ...notifications]),
-      );
+    if (!receiverId || receiverId === currentUserId) {
+      return;
     }
 
-    setMessage("");
+    /* SENDER */
+
+    const senderName =
+      String(currentUser?.name || "").trim() ||
+      (isSeller ? "البائع" : "المشتري");
+
+    /* NOTIFICATIONS */
+
+    const storedNotifications = readStorage("benaNotifications", []);
+
+    const notifications = Array.isArray(storedNotifications)
+      ? storedNotifications
+      : [];
+
+    /* CREATE NOTIFICATION */
+
+    const notification = {
+      id: `${Date.now()}_message`,
+
+      userId: receiverId,
+
+      conversationId,
+
+      productId: String(product.id),
+
+      type: "message",
+
+      title: `رسالة جديدة من ${senderName}`,
+
+      text: `أرسل لك ${senderName} رسالة بخصوص ${product.name || "المنتج"}`,
+
+      createdAt: now,
+
+      read: false,
+
+      link: `/messages/${product.id}?buyer=${buyerId}`,
+    };
+
+    /* SAVE NOTIFICATION */
+
+    localStorage.setItem(
+      "benaNotifications",
+      JSON.stringify([notification, ...notifications]),
+    );
+
+    window.dispatchEvent(new Event("bena-notifications-updated"));
   };
 
   /* PRODUCT NOT FOUND */
@@ -274,7 +509,13 @@ function Messages() {
   if (!product) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <MessageCircle size={34} />
+        </div>
+
         <h2>المنتج غير موجود</h2>
+
+        <p>قد يكون المنتج قد تم حذفه أو لم يعد متاحًا.</p>
 
         <button type="button" onClick={() => navigate("/products")}>
           العودة للمنتجات
@@ -288,6 +529,10 @@ function Messages() {
   if (!sellerId) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <MessageCircle size={34} />
+        </div>
+
         <h2>لا يمكن بدء المحادثة</h2>
 
         <p>لا يوجد بائع مرتبط بهذا المنتج حاليًا.</p>
@@ -307,6 +552,10 @@ function Messages() {
   if (!seller) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <UserRound size={34} />
+        </div>
+
         <h2>حساب البائع غير موجود</h2>
 
         <p>لا يمكن فتح هذه المحادثة حاليًا.</p>
@@ -323,6 +572,10 @@ function Messages() {
   if (isSeller && !buyerId) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <MessageCircle size={34} />
+        </div>
+
         <h2>اختر محادثة</h2>
 
         <p>اختر أحد المشترين من صفحة الرسائل لفتح المحادثة.</p>
@@ -339,6 +592,10 @@ function Messages() {
   if (!buyer) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <UserRound size={34} />
+        </div>
+
         <h2>المحادثة غير موجودة</h2>
 
         <p>المستخدم المرتبط بهذه المحادثة غير موجود.</p>
@@ -352,9 +609,13 @@ function Messages() {
 
   /* SELLER INVALID CONVERSATION */
 
-  if (isSeller && !existingConversation) {
+  if (isSeller && !conversation) {
     return (
       <div className="messages-not-found" dir="rtl">
+        <div className="messages-not-found-icon">
+          <MessageCircle size={34} />
+        </div>
+
         <h2>المحادثة غير موجودة</h2>
 
         <p>لا توجد محادثة سابقة مع هذا المستخدم حول المنتج.</p>
@@ -366,17 +627,24 @@ function Messages() {
     );
   }
 
+  const productImage = getProductImage(product);
+
   return (
     <main className="messages-page" dir="rtl">
       <div className="messages-container">
+        {/* BACK */}
+
         <button
           type="button"
           className="messages-back"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/messages")}
         >
-          <ArrowRight size={18} />
-          العودة
+          <ArrowRight size={19} />
+
+          <span>العودة للرسائل</span>
         </button>
+
+        {/* CHAT */}
 
         <div className="chat-card">
           {/* HEADER */}
@@ -387,11 +655,8 @@ function Messages() {
                 <UserRound size={24} />
               </div>
 
-              <div>
-                <h3>
-                  {otherUser?.name ||
-                    (isSeller ? "مشتري على بينا" : "بائع على بينا")}
-                </h3>
+              <div className="seller-profile-info">
+                <h3>{otherUserName}</h3>
 
                 <span>
                   <ShieldCheck size={13} />
@@ -400,45 +665,83 @@ function Messages() {
               </div>
             </div>
 
-            <div className="chat-product">
-              <img src={product.image} alt={product.name} />
+            {/* PRODUCT */}
+
+            <button
+              type="button"
+              className="chat-product"
+              onClick={() => navigate(`/products/${product.id}`)}
+            >
+              {productImage ? (
+                <img src={productImage} alt={product.name || "منتج"} />
+              ) : (
+                <div className="chat-product-image-fallback">
+                  <ImageOff size={22} strokeWidth={1.5} />
+                </div>
+              )}
 
               <div>
-                <strong>{product.name}</strong>
+                <strong>{product.name || "منتج بدون اسم"}</strong>
 
                 <span className="chat-product-price">
-                  {Number(product.price).toLocaleString()} ₪
+                  {getProductPrice(product).toLocaleString()} ₪
                 </span>
 
                 <small>
                   <MapPin size={12} />
 
-                  {product.location}
+                  {product.location || "غير محدد"}
                 </small>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* MESSAGES */}
 
           <div className="chat-messages">
             {messages.length > 0 ? (
-              messages.map((item) => {
-                const isMine = Number(item.senderId) === Number(currentUser.id);
+              messages.map((item, index) => {
+                const isMine = String(item?.senderId) === currentUserId;
+
+                const messageTime = formatMessageTime(item?.createdAt);
 
                 return (
                   <div
-                    key={item.id}
-                    className={`chat-message ${
-                      isMine ? "chat-message--buyer" : "chat-message--seller"
+                    key={item?.id ?? `${conversationId}-${index}`}
+                    className={`chat-message-row ${
+                      isMine
+                        ? "chat-message-row--mine"
+                        : "chat-message-row--other"
                     }`}
                   >
-                    {item.text}
+                    <div
+                      className={`chat-message ${
+                        isMine ? "chat-message--buyer" : "chat-message--seller"
+                      }`}
+                    >
+                      <p className="chat-message-text">{item?.text || ""}</p>
+
+                      {messageTime && (
+                        <span className="chat-message-time">
+                          <Clock3 size={10} />
+
+                          {messageTime}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })
             ) : (
-              <div className="chat-empty">ابدأ المحادثة حول هذا المنتج.</div>
+              <div className="chat-empty">
+                <div className="chat-empty-icon">
+                  <MessageCircle size={29} strokeWidth={1.5} />
+                </div>
+
+                <strong>ابدأ المحادثة</strong>
+
+                <span>أرسل رسالة إلى {otherUserName} حول هذا المنتج.</span>
+              </div>
             )}
 
             <div ref={messagesEndRef} />
@@ -447,16 +750,32 @@ function Messages() {
           {/* SEND */}
 
           <form className="chat-input-area" onSubmit={sendMessage}>
-            <input
-              type="text"
-              placeholder="اكتب رسالتك..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
+            <div className="chat-input-wrapper">
+              <input
+                type="text"
+                placeholder={`اكتب رسالة إلى ${otherUserName}...`}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                maxLength={1000}
+                autoComplete="off"
+                aria-label="اكتب رسالتك"
+              />
 
-            <button type="submit" disabled={!message.trim()}>
+              {message.length > 850 && (
+                <span className="chat-character-count">
+                  {message.length}/1000
+                </span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={!message.trim()}
+              aria-label="إرسال الرسالة"
+            >
               <Send size={18} />
-              إرسال
+
+              <span>إرسال</span>
             </button>
           </form>
         </div>

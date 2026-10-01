@@ -1,45 +1,196 @@
-import { useState } from "react";
+import "./Profile.css";
 
-import { ArrowRight, UserRound, Mail, MapPin, Phone } from "lucide-react";
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import Toast from "../components/Toast";
+import {
+  ArrowRight,
+  UserRound,
+  Mail,
+  MapPin,
+  Phone,
+  Save,
+  Pencil,
+  X,
+} from "lucide-react";
 
-import "./Profile.css";
+import Toast from "../components/Toast";
 
 function Profile() {
   const navigate = useNavigate();
 
+  const toastTimerRef = useRef(null);
+
+  /* STORAGE */
+
+  const readStorage = useCallback((key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
   /* USER */
 
-  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+  const getCurrentUser = useCallback(() => {
+    const user = readStorage("benaCurrentUser", null);
 
-  /* PROFILES */
+    if (!user || typeof user !== "object" || Array.isArray(user)) {
+      return null;
+    }
 
-  const savedProfiles = JSON.parse(localStorage.getItem("benaProfiles")) || {};
+    return user;
+  }, [readStorage]);
 
-  const savedProfile = savedProfiles[currentUser?.id] || {};
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
 
-  /* INITIAL PROFILE */
+  const userId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
 
-  const initialProfile = {
-    name: currentUser?.name || "مستخدم بينا",
+  /* PHONE HELPERS */
 
-    email: currentUser?.email || "",
-
-    phone: savedProfile.phone || "",
-
-    location: savedProfile.location || "قطاع غزة",
+  const normalizePhoneDigits = (value) => {
+    return String(value || "").replace(/\D/g, "");
   };
+
+  const normalizeLocalPhone = (value) => {
+    let digits = normalizePhoneDigits(value);
+
+    if (digits.startsWith("970") || digits.startsWith("972")) {
+      digits = digits.slice(3);
+    }
+
+    if (digits.startsWith("0")) {
+      digits = digits.slice(1);
+    }
+
+    return digits.slice(0, 9);
+  };
+
+  const getPhonePrefix = (value) => {
+    const rawValue = String(value || "").trim();
+    const digits = normalizePhoneDigits(rawValue);
+
+    if (
+      rawValue.startsWith("+972") ||
+      rawValue.startsWith("00972") ||
+      digits.startsWith("972")
+    ) {
+      return "+972";
+    }
+
+    return "+970";
+  };
+
+  const splitPhone = (value) => {
+    if (!value) {
+      return {
+        phonePrefix: "+970",
+        phone: "",
+      };
+    }
+
+    return {
+      phonePrefix: getPhonePrefix(value),
+      phone: normalizeLocalPhone(value),
+    };
+  };
+
+  const buildFullPhone = (prefix, localPhone) => {
+    const phone = normalizeLocalPhone(localPhone);
+
+    if (!phone) {
+      return "";
+    }
+
+    return `${prefix}${phone}`;
+  };
+
+  const isValidPhone = (value) => {
+    const phone = normalizeLocalPhone(value);
+
+    return /^(59|56)\d{7}$/.test(phone);
+  };
+
+  /* SAVED PROFILE */
+
+  const getSavedProfile = useCallback(
+    (targetUserId) => {
+      if (!targetUserId) {
+        return {};
+      }
+
+      const profiles = readStorage("benaProfiles", {});
+
+      if (
+        !profiles ||
+        typeof profiles !== "object" ||
+        Array.isArray(profiles)
+      ) {
+        return {};
+      }
+
+      const savedProfile = profiles[String(targetUserId)];
+
+      if (
+        !savedProfile ||
+        typeof savedProfile !== "object" ||
+        Array.isArray(savedProfile)
+      ) {
+        return {};
+      }
+
+      return savedProfile;
+    },
+    [readStorage],
+  );
+
+  /* CREATE PROFILE */
+
+  const createProfile = useCallback(
+    (user) => {
+      if (!user || user.id === undefined || user.id === null) {
+        return {
+          name: "مستخدم بينا",
+          email: "",
+          phonePrefix: "+970",
+          phone: "",
+          location: "قطاع غزة",
+        };
+      }
+
+      const savedProfile = getSavedProfile(String(user.id));
+
+      const savedPhone = savedProfile.phone || user.phone || "";
+
+      const phoneData = splitPhone(savedPhone);
+
+      return {
+        name: user.name || "مستخدم بينا",
+        email: user.email || "",
+        phonePrefix: phoneData.phonePrefix,
+        phone: phoneData.phone,
+        location: savedProfile.location || user.location || "قطاع غزة",
+      };
+    },
+    [getSavedProfile],
+  );
 
   /* STATE */
 
+  const [profile, setProfile] = useState(() => createProfile(getCurrentUser()));
+
+  const [originalProfile, setOriginalProfile] = useState(() =>
+    createProfile(getCurrentUser()),
+  );
+
   const [isEditing, setIsEditing] = useState(false);
-
-  const [profile, setProfile] = useState(initialProfile);
-
-  const [originalProfile, setOriginalProfile] = useState(initialProfile);
+  const [isSaving, setIsSaving] = useState(false);
 
   /* TOAST */
 
@@ -49,20 +200,84 @@ function Profile() {
     type: "success",
   });
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
-  };
+  }, []);
+
+  /* REFRESH */
+
+  const refreshProfile = useCallback(() => {
+    const latestUser = getCurrentUser();
+
+    setCurrentUser(latestUser);
+
+    const latestProfile = createProfile(latestUser);
+
+    setProfile(latestProfile);
+    setOriginalProfile(latestProfile);
+    setIsEditing(false);
+  }, [getCurrentUser, createProfile]);
+
+  /* EVENTS */
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (
+        !event.key ||
+        event.key === "benaCurrentUser" ||
+        event.key === "benaUsers" ||
+        event.key === "benaProfiles"
+      ) {
+        refreshProfile();
+      }
+    };
+
+    const handleUsersUpdated = () => {
+      refreshProfile();
+    };
+
+    const handleProfilesUpdated = () => {
+      refreshProfile();
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    window.addEventListener("bena-users-updated", handleUsersUpdated);
+
+    window.addEventListener("bena-profiles-updated", handleProfilesUpdated);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+
+      window.removeEventListener("bena-users-updated", handleUsersUpdated);
+
+      window.removeEventListener(
+        "bena-profiles-updated",
+        handleProfilesUpdated,
+      );
+
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, [refreshProfile]);
 
   /* START EDIT */
 
@@ -84,10 +299,31 @@ function Profile() {
     setIsEditing(false);
   };
 
-  /* SAVE PROFILE */
+  /* CHANGE */
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    let nextValue = value;
+
+    if (name === "phone") {
+      nextValue = normalizeLocalPhone(value);
+    }
+
+    setProfile((current) => ({
+      ...current,
+      [name]: nextValue,
+    }));
+  };
+
+  /* SAVE */
 
   const saveProfile = () => {
-    if (!currentUser) {
+    if (isSaving) {
+      return;
+    }
+
+    if (!currentUser || !userId) {
       showToast("سجل دخولك أولاً", "error");
 
       setTimeout(() => {
@@ -101,13 +337,21 @@ function Profile() {
       return;
     }
 
-    const name = profile.name.trim();
+    const name = String(profile.name || "").trim();
 
-    const email = profile.email.trim().toLowerCase();
+    const email = String(profile.email || "")
+      .trim()
+      .toLowerCase();
 
-    const phone = profile.phone.trim();
+    const phonePrefix = ["+970", "+972"].includes(profile.phonePrefix)
+      ? profile.phonePrefix
+      : "+970";
 
-    const location = profile.location.trim();
+    const localPhone = normalizeLocalPhone(profile.phone);
+
+    const phone = buildFullPhone(phonePrefix, localPhone);
+
+    const location = String(profile.location || "").trim();
 
     /* NAME */
 
@@ -119,6 +363,12 @@ function Profile() {
 
     if (name.length < 3) {
       showToast("الاسم يجب أن يكون 3 أحرف على الأقل", "error");
+
+      return;
+    }
+
+    if (name.length > 80) {
+      showToast("الاسم طويل جدًا", "error");
 
       return;
     }
@@ -139,16 +389,39 @@ function Profile() {
       return;
     }
 
+    /* PHONE */
+
+    if (!localPhone) {
+      showToast("يرجى إدخال رقم واتساب", "error");
+
+      return;
+    }
+
+    if (!isValidPhone(localPhone)) {
+      showToast("أدخل رقمًا صحيحًا يبدأ بـ 59 أو 56", "error");
+
+      return;
+    }
+
     /* USERS */
 
-    const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+    const storedUsers = readStorage("benaUsers", []);
+
+    const users = Array.isArray(storedUsers) ? storedUsers : [];
 
     /* EMAIL EXISTS */
 
     const emailExists = users.some((user) => {
-      const differentUser = Number(user.id) !== Number(currentUser.id);
+      if (!user || typeof user !== "object" || Array.isArray(user)) {
+        return false;
+      }
 
-      const sameEmail = user.email?.trim().toLowerCase() === email;
+      const differentUser = String(user.id) !== userId;
+
+      const sameEmail =
+        String(user.email || "")
+          .trim()
+          .toLowerCase() === email;
 
       return differentUser && sameEmail;
     });
@@ -159,65 +432,155 @@ function Profile() {
       return;
     }
 
-    /* UPDATE USER */
+    /* PHONE EXISTS */
 
-    const updatedUsers = users.map((user) =>
-      Number(user.id) === Number(currentUser.id)
-        ? {
-            ...user,
-            name,
-            email,
-          }
-        : user,
-    );
+    const phoneDigits = normalizePhoneDigits(phone);
 
-    localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
+    const phoneExists = users.some((user) => {
+      if (!user || typeof user !== "object" || Array.isArray(user)) {
+        return false;
+      }
 
-    /* CURRENT USER */
+      const differentUser = String(user.id) !== userId;
 
-    const updatedCurrentUser = {
-      ...currentUser,
-      name,
-      email,
-    };
+      const savedPhoneDigits = normalizePhoneDigits(user.phone);
 
-    localStorage.setItem("benaCurrentUser", JSON.stringify(updatedCurrentUser));
+      return (
+        differentUser && savedPhoneDigits && savedPhoneDigits === phoneDigits
+      );
+    });
 
-    /* PROFILE */
+    if (phoneExists) {
+      showToast("رقم واتساب مستخدم من حساب آخر", "error");
 
-    const finalLocation = location || "قطاع غزة";
+      return;
+    }
 
-    const updatedProfile = {
-      name,
-      email,
-      phone,
-      location: finalLocation,
-    };
+    setIsSaving(true);
 
-    const latestProfiles =
-      JSON.parse(localStorage.getItem("benaProfiles")) || {};
+    try {
+      /* UPDATE USERS */
 
-    const updatedProfiles = {
-      ...latestProfiles,
+      const updatedUsers = users.map((user) => {
+        if (!user || String(user.id) !== userId) {
+          return user;
+        }
 
-      [currentUser.id]: {
+        return {
+          ...user,
+          name,
+          email,
+          phone,
+        };
+      });
+
+      localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
+
+      /* CURRENT USER */
+
+      const updatedCurrentUser = {
+        ...currentUser,
+        name,
+        email,
         phone,
+      };
+
+      localStorage.setItem(
+        "benaCurrentUser",
+        JSON.stringify(updatedCurrentUser),
+      );
+
+      /* PROFILE */
+
+      const finalLocation = location || "قطاع غزة";
+
+      const storedProfiles = readStorage("benaProfiles", {});
+
+      const profiles =
+        storedProfiles &&
+        typeof storedProfiles === "object" &&
+        !Array.isArray(storedProfiles)
+          ? storedProfiles
+          : {};
+
+      const updatedProfiles = {
+        ...profiles,
+
+        [userId]: {
+          ...(profiles[userId] || {}),
+          phone,
+          location: finalLocation,
+        },
+      };
+
+      localStorage.setItem("benaProfiles", JSON.stringify(updatedProfiles));
+
+      /* UPDATE STATE */
+
+      const updatedProfile = {
+        name,
+        email,
+        phonePrefix,
+        phone: localPhone,
         location: finalLocation,
-      },
-    };
+      };
 
-    localStorage.setItem("benaProfiles", JSON.stringify(updatedProfiles));
+      setCurrentUser(updatedCurrentUser);
 
-    /* UPDATE STATE */
+      setProfile(updatedProfile);
 
-    setProfile(updatedProfile);
+      setOriginalProfile(updatedProfile);
 
-    setOriginalProfile(updatedProfile);
+      setIsEditing(false);
 
-    setIsEditing(false);
+      /* EVENTS */
 
-    showToast("تم حفظ بيانات الحساب بنجاح ✓", "success");
+      window.dispatchEvent(new Event("bena-users-updated"));
+
+      window.dispatchEvent(new Event("bena-profiles-updated"));
+
+      showToast("تم حفظ بيانات الحساب بنجاح ✓", "success");
+    } catch {
+      showToast("حدث خطأ أثناء حفظ البيانات", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  /* NOT LOGGED IN */
+
+  if (!currentUser || !userId) {
+    return (
+      <main className="profile-page" dir="rtl">
+        <div className="profile-login-required">
+          <div className="profile-login-icon">
+            <UserRound size={38} strokeWidth={1.5} />
+          </div>
+
+          <h2>سجل دخولك أولاً</h2>
+
+          <p>يجب تسجيل الدخول للوصول إلى بيانات حسابك.</p>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/login", {
+                state: {
+                  from: "/profile",
+                },
+              })
+            }
+          >
+            تسجيل الدخول
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  /* DISPLAY PHONE */
+
+  const fullPhone = buildFullPhone(profile.phonePrefix, profile.phone);
 
   return (
     <main className="profile-page" dir="rtl">
@@ -231,8 +594,9 @@ function Profile() {
           className="profile-back"
           onClick={() => navigate("/")}
         >
-          <ArrowRight size={18} />
-          العودة للرئيسية
+          <ArrowRight size={19} />
+
+          <span>العودة للرئيسية</span>
         </button>
 
         {/* HEADING */}
@@ -248,31 +612,32 @@ function Profile() {
         {/* CARD */}
 
         <div className="profile-card">
-          <div className="profile-avatar">
-            <UserRound size={42} strokeWidth={1.5} />
-          </div>
-
           {/* USER */}
 
-          <div className="profile-user">
-            {isEditing ? (
-              <input
-                type="text"
-                value={profile.name}
-                onChange={(e) =>
-                  setProfile((current) => ({
-                    ...current,
-                    name: e.target.value,
-                  }))
-                }
-                placeholder="الاسم"
-                className="profile-input"
-              />
-            ) : (
-              <h2>{profile.name}</h2>
-            )}
+          <div className="profile-user-section">
+            <div className="profile-avatar">
+              <UserRound size={42} strokeWidth={1.5} />
+            </div>
 
-            <p>عضو في منصة بينا</p>
+            <div className="profile-user">
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  placeholder="الاسم"
+                  className="profile-input profile-name-input"
+                  maxLength={80}
+                  autoComplete="name"
+                  disabled={isSaving}
+                />
+              ) : (
+                <h2>{profile.name || "مستخدم بينا"}</h2>
+              )}
+
+              <p>عضو في منصة بينا</p>
+            </div>
           </div>
 
           {/* DETAILS */}
@@ -281,26 +646,28 @@ function Profile() {
             {/* EMAIL */}
 
             <div className="profile-detail">
-              <Mail size={19} />
+              <div className="profile-detail-icon">
+                <Mail size={19} />
+              </div>
 
-              <div>
+              <div className="profile-detail-content">
                 <span>البريد الإلكتروني</span>
 
                 {isEditing ? (
                   <input
                     type="email"
+                    name="email"
                     value={profile.email}
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        email: e.target.value,
-                      }))
-                    }
+                    onChange={handleChange}
                     placeholder="البريد الإلكتروني"
                     className="profile-input"
+                    maxLength={120}
+                    autoComplete="email"
+                    disabled={isSaving}
+                    dir="ltr"
                   />
                 ) : (
-                  <strong>{profile.email}</strong>
+                  <strong dir="ltr">{profile.email || "غير مضاف"}</strong>
                 )}
               </div>
             </div>
@@ -308,26 +675,55 @@ function Profile() {
             {/* PHONE */}
 
             <div className="profile-detail">
-              <Phone size={19} />
+              <div className="profile-detail-icon">
+                <Phone size={19} />
+              </div>
 
-              <div>
-                <span>رقم الهاتف</span>
+              <div className="profile-detail-content">
+                <span>رقم واتساب</span>
 
                 {isEditing ? (
-                  <input
-                    type="tel"
-                    value={profile.phone}
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        phone: e.target.value,
-                      }))
-                    }
-                    placeholder="أدخل رقم الهاتف"
-                    className="profile-input"
-                  />
+                  <div className="profile-phone-wrapper" dir="ltr">
+                    <select
+                      name="phonePrefix"
+                      value={profile.phonePrefix}
+                      onChange={handleChange}
+                      className="profile-phone-prefix"
+                      disabled={isSaving}
+                      aria-label="مقدمة رقم الهاتف"
+                      dir="ltr"
+                    >
+                      <option value="+970">+970</option>
+
+                      <option value="+972">+972</option>
+                    </select>
+
+                    <span className="profile-phone-divider"></span>
+
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={profile.phone}
+                      onChange={handleChange}
+                      placeholder="597227016"
+                      className="profile-phone-input"
+                      maxLength={9}
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      disabled={isSaving}
+                      dir="ltr"
+                    />
+                  </div>
                 ) : (
-                  <strong>{profile.phone || "غير مضاف"}</strong>
+                  <strong dir="ltr" className="profile-phone-value">
+                    {fullPhone || "غير مضاف"}
+                  </strong>
+                )}
+
+                {isEditing && (
+                  <small className="profile-phone-hint">
+                    أدخل رقم الجوال بدون الصفر الأول
+                  </small>
                 )}
               </div>
             </div>
@@ -335,26 +731,35 @@ function Profile() {
             {/* LOCATION */}
 
             <div className="profile-detail">
-              <MapPin size={19} />
+              <div className="profile-detail-icon">
+                <MapPin size={19} />
+              </div>
 
-              <div>
+              <div className="profile-detail-content">
                 <span>الموقع</span>
 
                 {isEditing ? (
-                  <input
-                    type="text"
+                  <select
+                    name="location"
                     value={profile.location}
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        location: e.target.value,
-                      }))
-                    }
-                    placeholder="الموقع"
-                    className="profile-input"
-                  />
+                    onChange={handleChange}
+                    className="profile-input profile-select"
+                    disabled={isSaving}
+                  >
+                    <option value="قطاع غزة">قطاع غزة</option>
+
+                    <option value="غزة">غزة</option>
+
+                    <option value="شمال غزة">شمال غزة</option>
+
+                    <option value="دير البلح">دير البلح</option>
+
+                    <option value="خان يونس">خان يونس</option>
+
+                    <option value="رفح">رفح</option>
+                  </select>
                 ) : (
-                  <strong>{profile.location}</strong>
+                  <strong>{profile.location || "قطاع غزة"}</strong>
                 )}
               </div>
             </div>
@@ -363,29 +768,41 @@ function Profile() {
           {/* ACTIONS */}
 
           <div className="profile-actions">
-            {isEditing && (
+            {isEditing ? (
+              <>
+                <button
+                  type="button"
+                  className="cancel-profile-button"
+                  onClick={cancelEditing}
+                  disabled={isSaving}
+                >
+                  <X size={17} />
+
+                  <span>إلغاء</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="edit-profile-button"
+                  onClick={saveProfile}
+                  disabled={isSaving}
+                >
+                  <Save size={17} />
+
+                  <span>{isSaving ? "جاري الحفظ..." : "حفظ البيانات"}</span>
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
-                className="cancel-profile-button"
-                onClick={cancelEditing}
+                className="edit-profile-button"
+                onClick={startEditing}
               >
-                إلغاء
+                <Pencil size={17} />
+
+                <span>تعديل البيانات</span>
               </button>
             )}
-
-            <button
-              type="button"
-              className="edit-profile-button"
-              onClick={() => {
-                if (isEditing) {
-                  saveProfile();
-                } else {
-                  startEditing();
-                }
-              }}
-            >
-              {isEditing ? "حفظ البيانات" : "تعديل البيانات"}
-            </button>
           </div>
         </div>
       </div>

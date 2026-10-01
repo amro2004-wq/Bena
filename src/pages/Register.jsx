@@ -6,7 +6,7 @@ import Toast from "../components/Toast";
 
 import { Link, useNavigate } from "react-router-dom";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   UserRound,
@@ -15,24 +15,29 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  ShoppingBag,
-  MessageCircle,
-  MapPin,
+  PackagePlus,
+  MessagesSquare,
+  MapPinned,
   LoaderCircle,
+  UserPlus,
+  Sparkles,
+  ShieldCheck,
+  Phone,
 } from "lucide-react";
-
-import { FcGoogle } from "react-icons/fc";
-
-import { FaFacebookF, FaApple } from "react-icons/fa";
 
 function Register() {
   const navigate = useNavigate();
+
+  const toastTimerRef = useRef(null);
+  const actionTimersRef = useRef([]);
 
   /* FORM */
 
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phonePrefix: "+970",
+    phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -40,11 +45,9 @@ function Register() {
   const [errors, setErrors] = useState({});
 
   const [showPassword, setShowPassword] = useState(false);
-
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
 
   /* TOAST */
@@ -56,33 +59,112 @@ function Register() {
   });
 
   const showToast = (message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
+
+      toastTimerRef.current = null;
     }, 2200);
+  };
+
+  /* TIMER */
+
+  const addActionTimer = (callback, delay) => {
+    const timerId = setTimeout(() => {
+      actionTimersRef.current = actionTimersRef.current.filter(
+        (currentTimerId) => currentTimerId !== timerId,
+      );
+
+      callback();
+    }, delay);
+
+    actionTimersRef.current.push(timerId);
+  };
+
+  /* CLEANUP */
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+
+      actionTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+
+      actionTimersRef.current = [];
+    };
+  }, []);
+
+  /* PHONE */
+
+  const normalizeLocalPhone = (value) => {
+    let digits = String(value || "").replace(/\D/g, "");
+
+    if (digits.startsWith("0")) {
+      digits = digits.slice(1);
+    }
+
+    return digits.slice(0, 9);
+  };
+
+  const buildFullPhone = (prefix, localPhone) => {
+    const digits = normalizeLocalPhone(localPhone);
+
+    if (!digits) {
+      return "";
+    }
+
+    return `${prefix}${digits}`;
+  };
+
+  const normalizeFullPhone = (value) => {
+    return String(value || "").replace(/\D/g, "");
+  };
+
+  const isValidPhone = (value) => {
+    const digits = normalizeLocalPhone(value);
+
+    return /^(59|56)\d{7}$/.test(digits);
   };
 
   /* CHANGE */
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    let nextValue = value;
+
+    if (name === "phone") {
+      nextValue = normalizeLocalPhone(value);
+    }
 
     setForm((current) => ({
       ...current,
-      [name]: value,
+      [name]: nextValue,
     }));
 
     setErrors((current) => ({
       ...current,
       [name]: "",
+      ...(name === "phonePrefix"
+        ? {
+            phone: "",
+          }
+        : {}),
     }));
   };
 
@@ -156,8 +238,8 @@ function Register() {
     const newErrors = {};
 
     const name = form.name.trim();
-
     const email = form.email.trim().toLowerCase();
+    const phone = normalizeLocalPhone(form.phone);
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -171,6 +253,16 @@ function Register() {
       newErrors.email = "يرجى إدخال البريد الإلكتروني";
     } else if (!emailPattern.test(email)) {
       newErrors.email = "البريد الإلكتروني غير صحيح";
+    }
+
+    if (!phone) {
+      newErrors.phone = "يرجى إدخال رقم واتساب";
+    } else if (!isValidPhone(phone)) {
+      newErrors.phone = "أدخل رقمًا صحيحًا يبدأ بـ 59 أو 56";
+    }
+
+    if (!["+970", "+972"].includes(form.phonePrefix)) {
+      newErrors.phone = "يرجى اختيار مقدمة رقم صحيحة";
     }
 
     if (!form.password) {
@@ -194,10 +286,22 @@ function Register() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /* STORAGE */
+
+  const getUsers = () => {
+    try {
+      const savedUsers = JSON.parse(localStorage.getItem("benaUsers"));
+
+      return Array.isArray(savedUsers) ? savedUsers : [];
+    } catch {
+      return [];
+    }
+  };
+
   /* REGISTER */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
 
     if (isLoading) {
       return;
@@ -207,9 +311,13 @@ function Register() {
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem("benaUsers")) || [];
+    const users = getUsers();
 
     const email = form.email.trim().toLowerCase();
+
+    const phone = buildFullPhone(form.phonePrefix, form.phone);
+
+    const phoneDigits = normalizeFullPhone(phone);
 
     /* DUPLICATE EMAIL */
 
@@ -230,37 +338,62 @@ function Register() {
       return;
     }
 
+    /* DUPLICATE PHONE */
+
+    const phoneExists = users.some((user) => {
+      if (!user?.phone) {
+        return false;
+      }
+
+      return normalizeFullPhone(user.phone) === phoneDigits;
+    });
+
+    if (phoneExists) {
+      setErrors((current) => ({
+        ...current,
+        phone: "يوجد حساب مسجل بهذا الرقم",
+      }));
+
+      showToast("رقم الهاتف مستخدم بالفعل", "error");
+
+      return;
+    }
+
     setIsLoading(true);
 
     /* NEW USER */
 
     const newUser = {
       id: Date.now(),
-
       name: form.name.trim(),
-
       email,
-
+      phone,
       password: form.password,
-
       createdAt: new Date().toISOString(),
-
       role: "user",
     };
 
     const updatedUsers = [...users, newUser];
 
-    setTimeout(() => {
-      localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
+    addActionTimer(() => {
+      try {
+        localStorage.setItem("benaUsers", JSON.stringify(updatedUsers));
 
-      setIsLoading(false);
+        window.dispatchEvent(new Event("bena-users-updated"));
 
-      showToast("تم إنشاء الحساب بنجاح ✓", "success");
+        showToast("تم إنشاء الحساب بنجاح ✓", "success");
 
-      setTimeout(() => {
-        navigate("/login");
-      }, 900);
-    }, 900);
+        addActionTimer(() => {
+          navigate("/login", {
+            replace: true,
+          });
+        }, 800);
+      } catch {
+        setIsLoading(false);
+
+        showToast("تعذر إنشاء الحساب، حاول مرة أخرى", "error");
+      }
+    }, 600);
   };
 
   return (
@@ -272,11 +405,11 @@ function Register() {
 
         <section className="auth-visual">
           <span className="auth-decor auth-decor-one"></span>
-
+          <span className="auth-decor auth-decor-two"></span>
           <span className="auth-orange-circle"></span>
 
           <div className="auth-brand">
-            <h2>بينا</h2>
+            <div className="auth-brand-name">بينا</div>
 
             <p>
               من الناس
@@ -285,37 +418,61 @@ function Register() {
             </p>
           </div>
 
-          <div className="auth-visual-title">
-            <h3>
-              كل اللي بدك إياه
-              <br />
-              موجود بينا
-            </h3>
-          </div>
+          <div className="auth-visual-content">
+            <div className="auth-visual-badge">
+              <Sparkles size={14} />
 
-          <div className="auth-benefits">
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <ShoppingBag size={17} />
-              </span>
-
-              <strong>بيع منتجاتك بكل سهولة</strong>
+              <span>سوقك المحلي داخل غزة</span>
             </div>
 
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <MessageCircle size={17} />
-              </span>
+            <div className="auth-visual-title">
+              <h2>
+                كل اللي بدك إياه
+                <br />
+                <span>موجود بينا.</span>
+              </h2>
 
-              <strong>تواصل مباشرة مع البائع</strong>
+              <p>مكان واحد يجمع البيع والشراء والتواصل بسهولة.</p>
             </div>
 
-            <div className="auth-benefit">
-              <span className="auth-benefit-icon">
-                <MapPin size={17} />
-              </span>
+            {/* BENEFITS */}
 
-              <strong>اكتشف منتجات قريبة منك</strong>
+            <div className="auth-benefits">
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <PackagePlus />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>بيع منتجاتك بسهولة</strong>
+
+                  <small>اعرض منتجك ووصل للمشترين</small>
+                </div>
+              </div>
+
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <MessagesSquare />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>تواصل مباشرة</strong>
+
+                  <small>راسل البائع واتفق معه بسهولة</small>
+                </div>
+              </div>
+
+              <div className="auth-benefit">
+                <span className="auth-benefit-icon">
+                  <MapPinned />
+                </span>
+
+                <div className="auth-benefit-content">
+                  <strong>منتجات قريبة منك</strong>
+
+                  <small>اكتشف المنتجات داخل قطاع غزة</small>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -328,12 +485,28 @@ function Register() {
 
         <section className="auth-form-side" dir="rtl">
           <div className="auth-form-content">
-            <div className="auth-form-brand">بينا</div>
+            <div className="auth-mobile-brand">
+              <span>بينا</span>
+
+              <small>من الناس... للناس</small>
+            </div>
+
+            <div className="auth-form-top">
+              <div className="auth-form-icon">
+                <UserPlus size={22} />
+              </div>
+
+              <div>
+                <span>انضم إلى بينا</span>
+
+                <small>حساب واحد للبيع والشراء</small>
+              </div>
+            </div>
 
             <div className="auth-heading">
-              <h1>أنشئ حسابك في بينا</h1>
+              <h1>ابدأ مع بينا</h1>
 
-              <p>وابدأ البيع والشراء بسهولة داخل قطاع غزة</p>
+              <p>أنشئ حسابك وابدأ البيع والشراء داخل قطاع غزة.</p>
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit} noValidate>
@@ -357,6 +530,7 @@ function Register() {
                     onChange={handleChange}
                     placeholder="مثال: محمد أحمد"
                     autoComplete="name"
+                    maxLength={80}
                     disabled={isLoading}
                   />
                 </div>
@@ -387,11 +561,65 @@ function Register() {
                     placeholder="example@email.com"
                     autoComplete="email"
                     disabled={isLoading}
+                    dir="ltr"
                   />
                 </div>
 
                 {errors.email && (
                   <span className="auth-error">{errors.email}</span>
+                )}
+              </div>
+
+              {/* PHONE */}
+
+              <div className="auth-field">
+                <label htmlFor="phone">رقم واتساب</label>
+
+                <div
+                  className={`auth-phone-wrapper ${
+                    errors.phone ? "auth-input-error" : ""
+                  }`}
+                  dir="ltr"
+                >
+                  <Phone size={18} className="auth-phone-icon" />
+
+                  <select
+                    name="phonePrefix"
+                    value={form.phonePrefix}
+                    onChange={handleChange}
+                    className="auth-phone-prefix"
+                    disabled={isLoading}
+                    aria-label="مقدمة رقم الهاتف"
+                    dir="ltr"
+                  >
+                    <option value="+970">+970</option>
+
+                    <option value="+972">+972</option>
+                  </select>
+
+                  <span className="auth-phone-divider"></span>
+
+                  <input
+                    id="phone"
+                    type="tel"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    placeholder="597227016"
+                    autoComplete="tel"
+                    inputMode="numeric"
+                    maxLength={9}
+                    disabled={isLoading}
+                    dir="ltr"
+                  />
+                </div>
+
+                <span className="auth-phone-hint">
+                  اختر المقدمة ثم أدخل رقم الجوال بدون الصفر الأول
+                </span>
+
+                {errors.phone && (
+                  <span className="auth-error">{errors.phone}</span>
                 )}
               </div>
 
@@ -413,7 +641,7 @@ function Register() {
                     name="password"
                     value={form.password}
                     onChange={handleChange}
-                    placeholder="أدخل كلمة المرور"
+                    placeholder="6 أحرف على الأقل"
                     autoComplete="new-password"
                     disabled={isLoading}
                   />
@@ -512,14 +740,14 @@ function Register() {
 
               {/* TERMS */}
 
-              <div>
+              <div className="auth-terms-wrapper">
                 <label className="auth-terms">
                   <input
                     type="checkbox"
                     checked={acceptedTerms}
                     disabled={isLoading}
-                    onChange={(e) => {
-                      setAcceptedTerms(e.target.checked);
+                    onChange={(event) => {
+                      setAcceptedTerms(event.target.checked);
 
                       setErrors((current) => ({
                         ...current,
@@ -564,42 +792,26 @@ function Register() {
               </button>
             </form>
 
-            {/* DIVIDER */}
-
-            <div className="auth-divider">
-              <span>أو باستخدام</span>
-            </div>
-
-            {/* SOCIALS */}
-
-            <div className="auth-socials">
-              <button type="button">
-                <FcGoogle className="social-icon google-icon" />
-
-                <span>Google</span>
-              </button>
-
-              <button type="button">
-                <span className="facebook-icon">
-                  <FaFacebookF />
-                </span>
-
-                <span>Facebook</span>
-              </button>
-
-              <button type="button">
-                <FaApple className="social-icon apple-icon" />
-
-                <span>Apple</span>
-              </button>
-            </div>
-
             {/* LOGIN */}
 
-            <p className="auth-login">
-              لديك حساب بالفعل؟
-              <Link to="/login">تسجيل الدخول</Link>
-            </p>
+            <div className="auth-account-box">
+              <div>
+                <strong>عندك حساب بالفعل؟</strong>
+
+                <span>سجل دخولك وكمل من مكانك</span>
+              </div>
+
+              <Link to="/login">
+                تسجيل الدخول
+                <ArrowLeft size={15} />
+              </Link>
+            </div>
+
+            <div className="auth-security-note">
+              <ShieldCheck size={14} />
+
+              <span>حساب واحد يتيح لك البيع والشراء على بينا.</span>
+            </div>
           </div>
         </section>
       </div>

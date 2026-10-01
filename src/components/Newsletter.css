@@ -1,17 +1,21 @@
 /* NEWSLETTER */
 
 .newsletter {
-  width: calc(100% - 110px);
-  max-width: 1760px;
-  height: 104px;
+  width: calc(100% - 80px);
+  max-width: 1680px;
+  min-height: 104px;
 
   margin: 18px auto 0;
   padding: 0 28px;
 
   display: grid;
-  grid-template-columns: 320px 440px 360px;
-  justify-content: space-between;
+  grid-template-columns:
+    minmax(240px, 320px)
+    minmax(340px, 440px)
+    minmax(280px, 360px);
   align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 
   position: relative;
 
@@ -26,6 +30,8 @@
 /* TEXT */
 
 .newsletter-text {
+  min-width: 0;
+
   text-align: right;
 }
 
@@ -36,6 +42,7 @@
 
   font-size: 17px;
   font-weight: 800;
+  line-height: 1.4;
 }
 
 .newsletter-text p {
@@ -52,6 +59,8 @@
 .subscribe-area {
   position: relative;
 
+  min-width: 0;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,7 +70,8 @@
 }
 
 .email-field {
-  width: 320px;
+  width: 100%;
+  min-width: 0;
   height: 44px;
 
   padding: 0 14px;
@@ -78,6 +88,16 @@
   background: #ffffff;
 
   box-shadow: 0 4px 12px rgba(67, 35, 105, 0.04);
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.email-field:focus-within {
+  border-color: #c4b5fd;
+
+  box-shadow: 0 0 0 3px rgba(91, 33, 182, 0.08);
 }
 
 .email-field svg {
@@ -89,17 +109,18 @@
 .email-field input {
   width: 100%;
   min-width: 0;
+  height: 100%;
 
   border: none;
   outline: none;
 
   background: transparent;
-
   color: #18181b;
 
   font-family: inherit;
   font-size: 10px;
 
+  direction: rtl;
   text-align: right;
 }
 
@@ -125,25 +146,47 @@
 
   cursor: pointer;
 
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .subscribe-btn:hover {
   background: #4c1d95;
+
+  transform: translateY(-1px);
+
+  box-shadow: 0 6px 16px rgba(91, 33, 182, 0.16);
+}
+
+.subscribe-btn:active {
+  transform: scale(0.97);
+}
+
+.subscribe-btn:focus-visible {
+  outline: 3px solid rgba(91, 33, 182, 0.18);
+  outline-offset: 3px;
 }
 
 /* MESSAGE */
 
 .subscribe-message {
   position: absolute;
-
   top: calc(100% + 5px);
   right: 0;
+
+  max-width: 100%;
+
+  overflow: hidden;
 
   font-size: 10px;
   font-weight: 600;
 
+  text-overflow: ellipsis;
   white-space: nowrap;
+
+  direction: rtl;
 }
 
 .subscribe-message.success {
@@ -158,6 +201,7 @@
 
 .app-section {
   height: 100%;
+  min-width: 0;
 
   display: flex;
   align-items: center;
@@ -224,6 +268,7 @@
 
 .phone-screen img {
   width: 76%;
+  height: auto;
 
   display: block;
 
@@ -233,7 +278,7 @@
 /* APP DETAILS */
 
 .app-details {
-  min-width: 220px;
+  min-width: 0;
 
   direction: rtl;
 
@@ -249,6 +294,7 @@
 
   font-size: 15px;
   font-weight: 800;
+  line-height: 1.4;
 }
 
 .app-details p {
@@ -276,7 +322,7 @@
 
   object-fit: contain;
 
-  cursor: pointer;
+  user-select: none;
 }
 
 .google-badge {
@@ -289,7 +335,7 @@
   height: 34px;
 }
 
-/* LAPTOP */
+/* LARGE LAPTOP */
 
 @media (max-width: 1350px) {
   .newsletter {
@@ -297,11 +343,12 @@
 
     padding: 0 22px;
 
-    grid-template-columns: 290px 400px 330px;
-  }
+    grid-template-columns:
+      minmax(220px, 290px)
+      minmax(320px, 400px)
+      minmax(270px, 330px);
 
-  .email-field {
-    width: 285px;
+    gap: 18px;
   }
 
   .google-badge {
@@ -318,12 +365,15 @@
 @media (max-width: 1050px) {
   .newsletter {
     width: calc(100% - 40px);
-    height: auto;
+    min-height: 0;
 
     padding: 22px;
 
-    grid-template-columns: 1fr;
-    gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+
+    gap: 22px;
+
+    overflow: visible;
   }
 
   .newsletter-text {
@@ -332,6 +382,9 @@
 
   .subscribe-area {
     width: 100%;
+    max-width: 520px;
+
+    margin: 0 auto;
 
     justify-content: center;
   }
@@ -352,7 +405,7 @@
     margin-top: 16px;
     padding: 18px 12px;
 
-    gap: 18px;
+    gap: 20px;
 
     border-radius: 16px;
   }
@@ -372,7 +425,6 @@
   }
 
   .email-field {
-    width: 100%;
     height: 40px;
 
     padding: 0 10px;
@@ -400,10 +452,6 @@
     height: 90px;
   }
 
-  .app-details {
-    min-width: 0;
-  }
-
   .app-details h3 {
     font-size: 14px;
   }
@@ -423,10 +471,19 @@
 
 @media (max-width: 400px) {
   .newsletter {
+    width: calc(100% - 20px);
+
     padding: 16px 10px;
   }
 
+  .subscribe-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 62px;
+  }
+
   .email-field {
+    width: 100%;
+
     padding: 0 8px;
   }
 
@@ -438,6 +495,12 @@
     width: 62px;
 
     font-size: 10px;
+  }
+
+  .subscribe-message {
+    right: 0;
+
+    grid-column: 1 / -1;
   }
 
   .app-phone {
@@ -457,5 +520,41 @@
   .apple-badge {
     width: 82px;
     height: 27px;
+  }
+}
+
+/* VERY SMALL MOBILE */
+
+@media (max-width: 340px) {
+  .newsletter {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .app-section {
+    gap: 7px;
+  }
+
+  .app-phone {
+    width: 48px;
+    height: 78px;
+  }
+
+  .app-details h3 {
+    font-size: 12px;
+  }
+
+  .store-buttons {
+    gap: 4px;
+  }
+
+  .google-badge {
+    width: 78px;
+    height: 25px;
+  }
+
+  .apple-badge {
+    width: 74px;
+    height: 25px;
   }
 }

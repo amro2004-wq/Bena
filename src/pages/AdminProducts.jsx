@@ -2,7 +2,19 @@ import "./AdminProducts.css";
 
 import { useMemo, useState } from "react";
 
-import { Package, Trash2, Eye, Search, MapPin, UserRound } from "lucide-react";
+import {
+  Package,
+  Trash2,
+  Eye,
+  Search,
+  MapPin,
+  UserRound,
+  Boxes,
+  Sparkles,
+  RefreshCcw,
+  SlidersHorizontal,
+  ChevronDown,
+} from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 
@@ -25,20 +37,37 @@ function AdminProducts() {
     }
   };
 
-  const [products, setProducts] = useState(() =>
-    readStorage("benaProducts", []),
-  );
+  const [products, setProducts] = useState(() => {
+    const savedProducts = readStorage("benaProducts", []);
+
+    return Array.isArray(savedProducts) ? savedProducts : [];
+  });
+
+  const usersData = readStorage("benaUsers", []);
+
+  const users = Array.isArray(usersData) ? usersData : [];
+
+  /* SEARCH */
 
   const [search, setSearch] = useState("");
+
+  /* FILTERS */
+
+  const [conditionFilter, setConditionFilter] = useState("all");
+
+  const [sortBy, setSortBy] = useState("newest");
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
-  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const users = readStorage("benaUsers", []);
+  /* MODAL */
+
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   /* TOAST */
 
@@ -60,42 +89,148 @@ function AdminProducts() {
   /* SELLER */
 
   const getSeller = (sellerId) => {
-    return users.find((user) => Number(user.id) === Number(sellerId));
+    return users.find((user) => String(user.id) === String(sellerId));
   };
 
-  /* FILTER */
+  /* CONDITION */
+
+  const normalizeCondition = (condition) => {
+    return String(condition || "")
+      .trim()
+      .toLowerCase();
+  };
+
+  const getCondition = (condition) => {
+    if (!condition) {
+      return "غير محدد";
+    }
+
+    return condition;
+  };
+
+  const getConditionClass = (condition) => {
+    const value = normalizeCondition(condition);
+
+    if (value === "جديد" || value === "new") {
+      return "new";
+    }
+
+    if (value === "ممتاز" || value === "excellent") {
+      return "excellent";
+    }
+
+    if (value === "مستخدم" || value === "used") {
+      return "used";
+    }
+
+    return "default";
+  };
+
+  /* IMAGE */
+
+  const getProductImage = (product) => {
+    if (product?.image) {
+      return product.image;
+    }
+
+    if (Array.isArray(product?.images) && product.images.length > 0) {
+      return product.images[0];
+    }
+
+    return null;
+  };
+
+  /* STATISTICS */
+
+  const statistics = useMemo(() => {
+    const safeProducts = Array.isArray(products) ? products : [];
+
+    return {
+      all: safeProducts.length,
+
+      new: safeProducts.filter(
+        (product) => getConditionClass(product.condition) === "new",
+      ).length,
+
+      excellent: safeProducts.filter(
+        (product) => getConditionClass(product.condition) === "excellent",
+      ).length,
+
+      used: safeProducts.filter(
+        (product) => getConditionClass(product.condition) === "used",
+      ).length,
+    };
+  }, [products]);
+
+  /* FILTERED PRODUCTS */
 
   const filteredProducts = useMemo(() => {
     const value = search.trim().toLowerCase();
 
-    if (!value) {
-      return products;
-    }
+    const safeProducts = Array.isArray(products) ? [...products] : [];
 
-    return products.filter((product) => {
+    const result = safeProducts.filter((product) => {
       const seller = getSeller(product.sellerId);
 
-      const productName = product.name || product.title || "";
+      const productName = String(
+        product.name || product.title || "",
+      ).toLowerCase();
 
-      const location = product.location || "";
+      const location = String(product.location || "").toLowerCase();
 
-      const sellerName = seller?.name || product.sellerName || "";
+      const sellerName = String(
+        seller?.name || product.sellerName || "",
+      ).toLowerCase();
+
+      const productId = String(product.id || "").toLowerCase();
+
+      const matchesSearch =
+        !value ||
+        productName.includes(value) ||
+        location.includes(value) ||
+        sellerName.includes(value) ||
+        productId.includes(value);
+
+      const conditionClass = getConditionClass(product.condition);
+
+      const matchesCondition =
+        conditionFilter === "all" || conditionClass === conditionFilter;
+
+      return matchesSearch && matchesCondition;
+    });
+
+    return result.sort((a, b) => {
+      if (sortBy === "price-high") {
+        return Number(b.price || 0) - Number(a.price || 0);
+      }
+
+      if (sortBy === "price-low") {
+        return Number(a.price || 0) - Number(b.price || 0);
+      }
+
+      if (sortBy === "oldest") {
+        return (
+          new Date(a.createdAt || a.date || 0) -
+          new Date(b.createdAt || b.date || 0)
+        );
+      }
 
       return (
-        productName.toLowerCase().includes(value) ||
-        location.toLowerCase().includes(value) ||
-        sellerName.toLowerCase().includes(value)
+        new Date(b.createdAt || b.date || 0) -
+        new Date(a.createdAt || a.date || 0)
       );
     });
-  }, [search, products, users]);
+  }, [search, products, users, conditionFilter, sortBy]);
 
   /* DELETE PRODUCT */
 
   const deleteProduct = (productId) => {
-    const id = Number(productId);
+    const id = String(productId);
 
-    const updatedProducts = products.filter(
-      (product) => Number(product.id) !== id,
+    const safeProducts = Array.isArray(products) ? products : [];
+
+    const updatedProducts = safeProducts.filter(
+      (product) => String(product.id) !== id,
     );
 
     localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
@@ -113,11 +248,13 @@ function AdminProducts() {
 
       Object.entries(favoritesData).forEach(([userId, ids]) => {
         updatedFavorites[userId] = Array.isArray(ids)
-          ? ids.filter((favoriteProductId) => Number(favoriteProductId) !== id)
+          ? ids.filter((favoriteProductId) => String(favoriteProductId) !== id)
           : [];
       });
 
       localStorage.setItem("benaFavorites", JSON.stringify(updatedFavorites));
+
+      window.dispatchEvent(new CustomEvent("bena-favorites-updated"));
     }
 
     /* CART */
@@ -129,7 +266,7 @@ function AdminProducts() {
 
       Object.entries(cartData).forEach(([userId, ids]) => {
         updatedCart[userId] = Array.isArray(ids)
-          ? ids.filter((cartProductId) => Number(cartProductId) !== id)
+          ? ids.filter((cartProductId) => String(cartProductId) !== id)
           : [];
       });
 
@@ -140,35 +277,41 @@ function AdminProducts() {
 
     /* MESSAGES */
 
-    const messages = readStorage("benaMessages", {});
+    const messagesData = readStorage("benaMessages", {});
 
     const updatedMessages = {};
 
-    Object.entries(messages).forEach(([conversationId, conversation]) => {
-      const idParts = conversationId.split("_");
+    if (
+      messagesData &&
+      typeof messagesData === "object" &&
+      !Array.isArray(messagesData)
+    ) {
+      Object.entries(messagesData).forEach(([conversationId, conversation]) => {
+        const idParts = conversationId.split("_");
 
-      const idFromConversation = Number(idParts[0]);
+        const idFromConversation = String(idParts[0] || "");
 
-      let conversationProductId = null;
+        let conversationProductId = "";
 
-      if (Array.isArray(conversation)) {
-        conversationProductId = Number(
-          conversation[0]?.productId ?? idFromConversation,
-        );
-      } else {
-        conversationProductId = Number(
-          conversation?.productId ?? idFromConversation,
-        );
-      }
+        if (Array.isArray(conversation)) {
+          conversationProductId = String(
+            conversation[0]?.productId ?? idFromConversation,
+          );
+        } else {
+          conversationProductId = String(
+            conversation?.productId ?? idFromConversation,
+          );
+        }
 
-      const belongsToProduct = conversationProductId === id;
-
-      if (!belongsToProduct) {
-        updatedMessages[conversationId] = conversation;
-      }
-    });
+        if (conversationProductId !== id) {
+          updatedMessages[conversationId] = conversation;
+        }
+      });
+    }
 
     localStorage.setItem("benaMessages", JSON.stringify(updatedMessages));
+
+    window.dispatchEvent(new CustomEvent("bena-messages-updated"));
 
     /* NOTIFICATIONS */
 
@@ -176,7 +319,7 @@ function AdminProducts() {
 
     const updatedNotifications = Array.isArray(notifications)
       ? notifications.filter((notification) => {
-          const notificationProductId = Number(notification.productId);
+          const notificationProductId = String(notification.productId ?? "");
 
           const productLink = `/products/${id}`;
 
@@ -184,12 +327,16 @@ function AdminProducts() {
 
           const messageLink = `/messages/${id}`;
 
+          const link = String(notification.link || "");
+
+          const conversationId = String(notification.conversationId || "");
+
           return !(
             notificationProductId === id ||
-            notification.link === productLink ||
-            notification.link === oldProductLink ||
-            notification.link?.startsWith(messageLink) ||
-            notification.conversationId?.toString().startsWith(`${id}_`)
+            link === productLink ||
+            link === oldProductLink ||
+            link.startsWith(messageLink) ||
+            conversationId.startsWith(`${id}_`)
           );
         })
       : [];
@@ -199,175 +346,360 @@ function AdminProducts() {
       JSON.stringify(updatedNotifications),
     );
 
+    window.dispatchEvent(new CustomEvent("bena-notifications-updated"));
+
     /* UPDATE UI */
 
     setProducts(updatedProducts);
 
+    setSelectedProduct(null);
+
+    window.dispatchEvent(new CustomEvent("bena-products-updated"));
+
     showToast("تم حذف المنتج وبياناته المرتبطة ✓", "success");
   };
 
-  /* CONDITION */
+  /* RESET */
 
-  const getCondition = (condition) => {
-    if (!condition) {
-      return "غير محدد";
-    }
-
-    return condition;
+  const resetFilters = () => {
+    setSearch("");
+    setConditionFilter("all");
+    setSortBy("newest");
   };
 
   return (
-    <div className="admin-layout" dir="rtl">
+    <div className="admin-products-layout" dir="rtl">
       <AdminSidebar />
 
       <main className="admin-products-page">
         <Toast show={toast.show} message={toast.message} type={toast.type} />
 
         <div className="admin-products-container">
-          <div className="admin-products-heading">
+          {/* HEADER */}
+
+          <header className="admin-products-heading">
             <div>
-              <span>إدارة المنتجات</span>
+              <div className="admin-products-eyebrow">
+                <Package size={14} />
+
+                <span>إدارة المنتجات</span>
+              </div>
 
               <h1>المنتجات</h1>
 
-              <p>تابع جميع المنتجات المنشورة على منصة بينا.</p>
+              <p>تابع المنتجات المنشورة على منصة بينا وأدر محتوى السوق.</p>
             </div>
 
-            <div className="admin-products-count">
-              <Package size={20} />
+            <div className="admin-products-heading-count">
+              <span>إجمالي المنتجات</span>
 
-              <strong>{products.length}</strong>
+              <strong>{statistics.all}</strong>
 
-              <span>منتج</span>
+              <small>منتج منشور</small>
             </div>
-          </div>
+          </header>
 
-          <div className="admin-products-toolbar">
+          {/* STATISTICS */}
+
+          <section className="admin-products-stats">
+            <button
+              type="button"
+              className={`admin-products-stat total ${
+                conditionFilter === "all" ? "active" : ""
+              }`}
+              onClick={() => setConditionFilter("all")}
+            >
+              <span className="admin-products-stat-icon">
+                <Boxes size={20} />
+              </span>
+
+              <div>
+                <span>جميع المنتجات</span>
+
+                <strong>{statistics.all}</strong>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`admin-products-stat new ${
+                conditionFilter === "new" ? "active" : ""
+              }`}
+              onClick={() => setConditionFilter("new")}
+            >
+              <span className="admin-products-stat-icon">
+                <Sparkles size={20} />
+              </span>
+
+              <div>
+                <span>جديد</span>
+
+                <strong>{statistics.new}</strong>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`admin-products-stat excellent ${
+                conditionFilter === "excellent" ? "active" : ""
+              }`}
+              onClick={() => setConditionFilter("excellent")}
+            >
+              <span className="admin-products-stat-icon">
+                <Package size={20} />
+              </span>
+
+              <div>
+                <span>حالة ممتازة</span>
+
+                <strong>{statistics.excellent}</strong>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`admin-products-stat used ${
+                conditionFilter === "used" ? "active" : ""
+              }`}
+              onClick={() => setConditionFilter("used")}
+            >
+              <span className="admin-products-stat-icon">
+                <RefreshCcw size={20} />
+              </span>
+
+              <div>
+                <span>مستخدم</span>
+
+                <strong>{statistics.used}</strong>
+              </div>
+            </button>
+          </section>
+
+          {/* TOOLBAR */}
+
+          <section className="admin-products-toolbar">
             <div className="admin-products-search">
-              <Search size={18} />
+              <Search size={17} />
 
               <input
                 type="text"
                 value={search}
-                placeholder="ابحث باسم المنتج أو البائع أو الموقع..."
+                placeholder="ابحث باسم المنتج أو البائع أو الموقع أو رقم المنتج..."
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
+
+            <div className="admin-products-toolbar-options">
+              <div className="admin-products-select">
+                <SlidersHorizontal size={15} />
+
+                <select
+                  value={conditionFilter}
+                  onChange={(event) => setConditionFilter(event.target.value)}
+                >
+                  <option value="all">جميع الحالات</option>
+
+                  <option value="new">جديد</option>
+
+                  <option value="excellent">ممتاز</option>
+
+                  <option value="used">مستخدم</option>
+                </select>
+
+                <ChevronDown
+                  className="admin-products-select-arrow"
+                  size={14}
+                />
+              </div>
+
+              <div className="admin-products-select">
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value)}
+                >
+                  <option value="newest">الأحدث أولًا</option>
+
+                  <option value="oldest">الأقدم أولًا</option>
+
+                  <option value="price-high">السعر: الأعلى</option>
+
+                  <option value="price-low">السعر: الأقل</option>
+                </select>
+
+                <ChevronDown
+                  className="admin-products-select-arrow"
+                  size={14}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* RESULTS */}
+
+          <div className="admin-products-results">
+            <span>
+              عرض <strong>{filteredProducts.length}</strong> من{" "}
+              <strong>{statistics.all}</strong> منتج
+            </span>
           </div>
 
-          <div className="admin-products-table-wrapper">
-            <table className="admin-products-table">
-              <thead>
-                <tr>
-                  <th>المنتج</th>
+          {/* TABLE */}
 
-                  <th>البائع</th>
+          <section className="admin-products-table-card">
+            <div className="admin-products-table-heading">
+              <div>
+                <h2>قائمة المنتجات</h2>
 
-                  <th>السعر</th>
+                <p>جميع المنتجات المنشورة ومعلومات البائع والسعر والحالة</p>
+              </div>
 
-                  <th>الموقع</th>
+              <span>{filteredProducts.length} نتيجة</span>
+            </div>
 
-                  <th>الحالة</th>
+            {filteredProducts.length > 0 ? (
+              <div className="admin-products-table-wrapper">
+                <table className="admin-products-table">
+                  <thead>
+                    <tr>
+                      <th>المنتج</th>
 
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
+                      <th>البائع</th>
 
-              <tbody>
-                {filteredProducts.map((product) => {
-                  const seller = getSeller(product.sellerId);
+                      <th>السعر</th>
 
-                  return (
-                    <tr key={product.id}>
-                      <td>
-                        <div className="admin-product-cell">
-                          <div className="admin-product-image">
-                            {product.image ? (
-                              <img
-                                src={product.image}
-                                alt={product.name || product.title || "منتج"}
-                              />
-                            ) : (
-                              <Package size={20} />
-                            )}
-                          </div>
+                      <th>الموقع</th>
 
-                          <div>
-                            <strong>
-                              {product.name || product.title || "بدون اسم"}
-                            </strong>
+                      <th>الحالة</th>
 
-                            <span>ID: {product.id}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <div className="admin-product-seller">
-                          <UserRound size={16} />
-
-                          <span>
-                            {seller?.name || product.sellerName || "غير معروف"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td>
-                        <strong className="admin-product-price">
-                          {product.price ?? 0} ₪
-                        </strong>
-                      </td>
-
-                      <td>
-                        <span className="admin-product-location">
-                          <MapPin size={15} />
-
-                          {product.location || "غير محدد"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span className="admin-product-condition">
-                          {getCondition(product.condition)}
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="admin-product-actions">
-                          <button
-                            type="button"
-                            className="admin-view-product"
-                            onClick={() => navigate(`/products/${product.id}`)}
-                          >
-                            <Eye size={16} />
-                            عرض
-                          </button>
-
-                          <button
-                            type="button"
-                            className="admin-delete-product"
-                            onClick={() => setSelectedProduct(product)}
-                          >
-                            <Trash2 size={16} />
-                            حذف
-                          </button>
-                        </div>
-                      </td>
+                      <th>الإجراءات</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
 
-            {filteredProducts.length === 0 && (
+                  <tbody>
+                    {filteredProducts.map((product) => {
+                      const seller = getSeller(product.sellerId);
+
+                      const productImage = getProductImage(product);
+
+                      return (
+                        <tr key={product.id}>
+                          <td>
+                            <div className="admin-product-cell">
+                              <div className="admin-product-image">
+                                {productImage ? (
+                                  <img
+                                    src={productImage}
+                                    alt={
+                                      product.name || product.title || "منتج"
+                                    }
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <Package size={20} />
+                                )}
+                              </div>
+
+                              <div>
+                                <strong>
+                                  {product.name || product.title || "بدون اسم"}
+                                </strong>
+
+                                <span>#{product.id}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td>
+                            <div className="admin-product-seller">
+                              <span className="admin-product-seller-icon">
+                                <UserRound size={14} />
+                              </span>
+
+                              <span>
+                                {seller?.name ||
+                                  product.sellerName ||
+                                  "غير معروف"}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td>
+                            <div className="admin-product-price">
+                              <strong>
+                                {Number(product.price || 0).toLocaleString(
+                                  "en-US",
+                                )}
+                              </strong>
+
+                              <span>₪</span>
+                            </div>
+                          </td>
+
+                          <td>
+                            <span className="admin-product-location">
+                              <MapPin size={13} />
+
+                              {product.location || "غير محدد"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span
+                              className={`admin-product-condition ${getConditionClass(
+                                product.condition,
+                              )}`}
+                            >
+                              {getCondition(product.condition)}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="admin-product-actions">
+                              <button
+                                type="button"
+                                className="admin-view-product"
+                                onClick={() =>
+                                  navigate(`/products/${product.id}`)
+                                }
+                              >
+                                <Eye size={14} />
+                                عرض
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-delete-product"
+                                onClick={() => setSelectedProduct(product)}
+                              >
+                                <Trash2 size={14} />
+                                حذف
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
               <div className="admin-products-empty">
-                {search
-                  ? "لا توجد نتائج مطابقة للبحث."
-                  : "لا توجد منتجات منشورة حاليًا."}
+                <span className="admin-products-empty-icon">
+                  <Package size={29} />
+                </span>
+
+                <h2>لا توجد نتائج</h2>
+
+                <p>لم يتم العثور على منتجات مطابقة للبحث أو الفلاتر.</p>
+
+                <button type="button" onClick={resetFilters}>
+                  عرض جميع المنتجات
+                </button>
               </div>
             )}
-          </div>
+          </section>
         </div>
+
         <ConfirmModal
           open={Boolean(selectedProduct)}
           title="حذف المنتج"
@@ -387,8 +719,6 @@ function AdminProducts() {
             }
 
             deleteProduct(selectedProduct.id);
-
-            setSelectedProduct(null);
           }}
         />
       </main>

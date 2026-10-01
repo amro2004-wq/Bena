@@ -2,9 +2,9 @@ import "./Products.css";
 
 import { defaultProducts } from "../data/products";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import Toast from "../components/Toast";
 import Navbar from "../components/Navbar";
@@ -22,7 +22,14 @@ import {
   X,
   ShoppingCart,
   Check,
+  ImageOff,
+  Clock3,
+  PackageCheck,
+  LockKeyhole,
+  BadgeCheck,
 } from "lucide-react";
+
+/* CATEGORIES */
 
 const categories = [
   "الكل",
@@ -52,59 +59,294 @@ const categories = [
   "أخرى",
 ];
 
+const locations = ["غزة", "شمال غزة", "دير البلح", "خان يونس", "رفح"];
+
+/* ORDER HELPERS */
+
+const normalizeOrderStatus = (status) =>
+  String(status || "")
+    .trim()
+    .toLowerCase();
+
+const ORDER_STATUS_PRIORITY = {
+  completed: 4,
+  preparing: 3,
+  confirmed: 2,
+  pending: 1,
+};
+
+const getOrderBuyerId = (order) => {
+  const id =
+    order?.buyerId ??
+    order?.userId ??
+    order?.buyer?.id ??
+    order?.user?.id ??
+    null;
+
+  if (id === undefined || id === null || id === "") {
+    return null;
+  }
+
+  return String(id);
+};
+
+const getOrderProductIds = (order) => {
+  const ids = [];
+
+  const addId = (value) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    ids.push(String(value));
+  };
+
+  if (Array.isArray(order?.products)) {
+    order.products.forEach((item) => {
+      if (item && typeof item === "object") {
+        addId(
+          item.productId ??
+            item.id ??
+            item.product?.id ??
+            item.product?.productId,
+        );
+      } else {
+        addId(item);
+      }
+    });
+  }
+
+  if (Array.isArray(order?.items)) {
+    order.items.forEach((item) => {
+      if (item && typeof item === "object") {
+        addId(
+          item.productId ??
+            item.id ??
+            item.product?.id ??
+            item.product?.productId,
+        );
+      } else {
+        addId(item);
+      }
+    });
+  }
+
+  addId(order?.productId);
+
+  return [...new Set(ids)];
+};
+
+const orderContainsProduct = (order, productId) => {
+  const targetId = String(productId);
+
+  return getOrderProductIds(order).some((id) => id === targetId);
+};
+
+const getOrderTime = (order) => {
+  const values = [
+    order?.updatedAt,
+    order?.createdAt,
+    order?.date,
+    order?.orderDate,
+  ];
+
+  for (const value of values) {
+    const time = new Date(value || "").getTime();
+
+    if (Number.isFinite(time)) {
+      return time;
+    }
+  }
+
+  const numericId = Number(order?.id);
+
+  return Number.isFinite(numericId) ? numericId : 0;
+};
+
+const getRelevantProductOrder = (orders, productId) => {
+  if (!Array.isArray(orders)) {
+    return null;
+  }
+
+  const relevantOrders = orders
+    .filter((order) => {
+      const status = normalizeOrderStatus(order?.status);
+
+      return (
+        Object.prototype.hasOwnProperty.call(ORDER_STATUS_PRIORITY, status) &&
+        orderContainsProduct(order, productId)
+      );
+    })
+    .sort((a, b) => {
+      const aStatus = normalizeOrderStatus(a?.status);
+      const bStatus = normalizeOrderStatus(b?.status);
+
+      const priorityDifference =
+        (ORDER_STATUS_PRIORITY[bStatus] || 0) -
+        (ORDER_STATUS_PRIORITY[aStatus] || 0);
+
+      if (priorityDifference !== 0) {
+        return priorityDifference;
+      }
+
+      return getOrderTime(b) - getOrderTime(a);
+    });
+
+  return relevantOrders[0] || null;
+};
+
 function Products() {
   const navigate = useNavigate();
-
+  const routerLocation = useLocation();
   const [searchParams] = useSearchParams();
 
-  const currentUser = JSON.parse(localStorage.getItem("benaCurrentUser"));
+  const toastTimerRef = useRef(null);
+  const redirectTimersRef = useRef([]);
 
-  const userId = currentUser ? String(currentUser.id) : null;
+  /* STORAGE */
+
+  const readStorage = useCallback((key, fallback) => {
+    try {
+      const value = localStorage.getItem(key);
+
+      return value ? JSON.parse(value) : fallback;
+    } catch {
+      return fallback;
+    }
+  }, []);
+
+  /* USER */
+
+  const getCurrentUser = useCallback(() => {
+    const savedUser = readStorage("benaCurrentUser", null);
+
+    if (
+      !savedUser ||
+      typeof savedUser !== "object" ||
+      Array.isArray(savedUser)
+    ) {
+      return null;
+    }
+
+    return savedUser;
+  }, [readStorage]);
+
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+
+  const userId =
+    currentUser?.id !== undefined && currentUser?.id !== null
+      ? String(currentUser.id)
+      : null;
+
+  /* URL */
 
   const initialSearch = searchParams.get("search") || "";
-
   const initialCategory = searchParams.get("category") || "الكل";
 
-  const [savedProducts, setSavedProducts] = useState(() => {
-    return JSON.parse(localStorage.getItem("benaProducts")) || [];
-  });
+  /* PRODUCTS */
 
-  const products = [...savedProducts, ...defaultProducts];
+  const getSavedProducts = useCallback(() => {
+    const saved = readStorage("benaProducts", []);
+
+    return Array.isArray(saved) ? saved : [];
+  }, [readStorage]);
+
+  const [savedProducts, setSavedProducts] = useState(() => getSavedProducts());
+
+  const [failedImageIds, setFailedImageIds] = useState(() => new Set());
+
+  const products = useMemo(() => {
+    const defaults = Array.isArray(defaultProducts) ? defaultProducts : [];
+
+    const productsMap = new Map();
+
+    defaults.forEach((product) => {
+      if (product?.id !== undefined && product?.id !== null) {
+        productsMap.set(String(product.id), product);
+      }
+    });
+
+    savedProducts.forEach((product) => {
+      if (product?.id !== undefined && product?.id !== null) {
+        productsMap.set(String(product.id), product);
+      }
+    });
+
+    return Array.from(productsMap.values());
+  }, [savedProducts]);
+
+  /* FILTERS */
 
   const [search, setSearch] = useState(initialSearch);
 
-  const [category, setCategory] = useState(initialCategory);
+  const [category, setCategory] = useState(
+    categories.includes(initialCategory) ? initialCategory : "الكل",
+  );
 
   const [condition, setCondition] = useState("الكل");
-
   const [location, setLocation] = useState("الكل");
-
   const [sort, setSort] = useState("latest");
 
-  const [favorites, setFavorites] = useState(() => {
-    if (!userId) {
+  /* FAVORITES */
+
+  const getUserFavorites = useCallback(
+    (id) => {
+      if (!id) {
+        return [];
+      }
+
+      const allFavorites = readStorage("benaFavorites", {});
+
+      if (
+        !allFavorites ||
+        typeof allFavorites !== "object" ||
+        Array.isArray(allFavorites)
+      ) {
+        return [];
+      }
+
+      const userFavorites = allFavorites[String(id)];
+
+      return Array.isArray(userFavorites) ? userFavorites : [];
+    },
+    [readStorage],
+  );
+
+  const [favorites, setFavorites] = useState(() => getUserFavorites(userId));
+
+  /* CART */
+
+  const getUserCart = useCallback((id) => {
+    if (!id) {
       return [];
     }
 
-    const allFavorites =
-      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+    try {
+      const cart = getCart(String(id));
 
-    if (Array.isArray(allFavorites)) {
+      return Array.isArray(cart) ? cart : [];
+    } catch {
       return [];
     }
+  }, []);
 
-    return allFavorites[userId] || [];
-  });
+  const [cartIds, setCartIds] = useState(() => getUserCart(userId));
 
-  const [cartIds, setCartIds] = useState(() => {
-    if (!userId) {
-      return [];
-    }
+  /* ORDERS */
 
-    return getCart(userId);
-  });
+  const getOrders = useCallback(() => {
+    const savedOrders = readStorage("benaOrders", []);
+
+    return Array.isArray(savedOrders) ? savedOrders : [];
+  }, [readStorage]);
+
+  const [orders, setOrders] = useState(() => getOrders());
+
+  /* DELETE */
 
   const [productToDelete, setProductToDelete] = useState(null);
+
+  /* TOAST */
 
   const [toast, setToast] = useState({
     show: false,
@@ -112,50 +354,331 @@ function Products() {
     type: "success",
   });
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
     setToast({
       show: true,
       message,
       type,
     });
 
-    setTimeout(() => {
+    toastTimerRef.current = setTimeout(() => {
       setToast((current) => ({
         ...current,
         show: false,
       }));
     }, 2200);
-  };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+
+      redirectTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId);
+      });
+
+      redirectTimersRef.current = [];
+    };
+  }, []);
+
+  /* REFRESH */
+
+  const refreshProducts = useCallback(() => {
+    setSavedProducts(getSavedProducts());
+    setFailedImageIds(new Set());
+  }, [getSavedProducts]);
+
+  const refreshFavorites = useCallback(() => {
+    const user = getCurrentUser();
+
+    const id =
+      user?.id !== undefined && user?.id !== null ? String(user.id) : null;
+
+    setCurrentUser(user);
+    setFavorites(getUserFavorites(id));
+  }, [getCurrentUser, getUserFavorites]);
+
+  const refreshCart = useCallback(() => {
+    const user = getCurrentUser();
+
+    const id =
+      user?.id !== undefined && user?.id !== null ? String(user.id) : null;
+
+    setCurrentUser(user);
+    setCartIds(getUserCart(id));
+  }, [getCurrentUser, getUserCart]);
+
+  const refreshOrders = useCallback(() => {
+    setOrders(getOrders());
+  }, [getOrders]);
+
+  /* EVENTS */
+
+  useEffect(() => {
+    const handleStorage = (event) => {
+      if (!event.key || event.key === "benaProducts") {
+        refreshProducts();
+      }
+
+      if (!event.key || event.key === "benaFavorites") {
+        refreshFavorites();
+      }
+
+      if (!event.key || event.key === "benaCart") {
+        refreshCart();
+      }
+
+      if (!event.key || event.key === "benaOrders") {
+        refreshOrders();
+      }
+
+      if (!event.key || event.key === "benaCurrentUser") {
+        refreshFavorites();
+        refreshCart();
+        refreshOrders();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    window.addEventListener("bena-products-updated", refreshProducts);
+    window.addEventListener("bena-favorites-updated", refreshFavorites);
+    window.addEventListener("bena-cart-updated", refreshCart);
+    window.addEventListener("bena-orders-updated", refreshOrders);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+
+      window.removeEventListener("bena-products-updated", refreshProducts);
+      window.removeEventListener("bena-favorites-updated", refreshFavorites);
+      window.removeEventListener("bena-cart-updated", refreshCart);
+      window.removeEventListener("bena-orders-updated", refreshOrders);
+    };
+  }, [refreshProducts, refreshFavorites, refreshCart, refreshOrders]);
+
+  /* URL SYNC */
+
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || "";
+    const urlCategory = searchParams.get("category") || "الكل";
+
+    setSearch(urlSearch);
+
+    setCategory(categories.includes(urlCategory) ? urlCategory : "الكل");
+  }, [searchParams, routerLocation.search]);
+
+  /* DELETE MODAL */
+
+  useEffect(() => {
+    if (!productToDelete) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setProductToDelete(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [productToDelete]);
 
   /* OWNER */
 
   const isOwner = (product) => {
-    if (!currentUser || !product?.sellerId) {
+    if (
+      !currentUser ||
+      product?.sellerId === undefined ||
+      product?.sellerId === null
+    ) {
       return false;
     }
 
-    return Number(product.sellerId) === Number(currentUser.id);
+    return String(product.sellerId) === String(currentUser.id);
+  };
+
+  /* IMAGE */
+
+  const getProductImage = (product) => {
+    if (product?.image) {
+      return product.image;
+    }
+
+    if (Array.isArray(product?.images) && product.images.length > 0) {
+      return product.images[0];
+    }
+
+    return null;
+  };
+
+  /* PRICE */
+
+  const getProductPrice = (product) => {
+    const price = Number(product?.price);
+
+    return Number.isFinite(price) && price >= 0 ? price : 0;
+  };
+
+  /* CONDITION */
+
+  const getConditionClass = (product) => {
+    if (["new", "excellent", "used"].includes(product?.conditionClass)) {
+      return product.conditionClass;
+    }
+
+    if (product?.condition === "جديد") {
+      return "new";
+    }
+
+    if (product?.condition === "ممتاز") {
+      return "excellent";
+    }
+
+    return "used";
+  };
+
+  /* LOGIN REDIRECT */
+
+  const redirectToLogin = () => {
+    const timerId = setTimeout(() => {
+      redirectTimersRef.current = redirectTimersRef.current.filter(
+        (id) => id !== timerId,
+      );
+
+      navigate("/login", {
+        state: {
+          from:
+            routerLocation.pathname +
+            routerLocation.search +
+            routerLocation.hash,
+        },
+      });
+    }, 650);
+
+    redirectTimersRef.current.push(timerId);
   };
 
   /* CART */
 
   const isInCart = (id) => {
-    return cartIds.some((item) => Number(item) === Number(id));
+    return cartIds.some((item) => String(item) === String(id));
   };
 
-  const handleAddToCart = (e, product) => {
-    e.stopPropagation();
+  /* PRODUCT ORDER */
 
-    if (!currentUser) {
+  const getProductOrderInfo = (productId) => {
+    const order = getRelevantProductOrder(orders, productId);
+
+    if (!order) {
+      return {
+        order: null,
+        status: null,
+        buyerId: null,
+        isCurrentBuyer: false,
+        blocked: false,
+        sold: false,
+      };
+    }
+
+    const status = normalizeOrderStatus(order.status);
+    const buyerId = getOrderBuyerId(order);
+
+    const isCurrentBuyer =
+      Boolean(userId) && Boolean(buyerId) && String(userId) === String(buyerId);
+
+    return {
+      order,
+      status,
+      buyerId,
+      isCurrentBuyer,
+      blocked: ["pending", "confirmed", "preparing", "completed"].includes(
+        status,
+      ),
+      sold: status === "completed",
+    };
+  };
+
+  /* PURCHASE BUTTON */
+
+  const getPurchaseButtonState = (product) => {
+    const orderInfo = getProductOrderInfo(product.id);
+
+    if (orderInfo.status === "completed") {
+      return {
+        type: "sold",
+        text: orderInfo.isCurrentBuyer ? "تم الشراء" : "تم البيع",
+        disabled: true,
+        icon: BadgeCheck,
+      };
+    }
+
+    if (orderInfo.status === "preparing") {
+      return {
+        type: orderInfo.isCurrentBuyer ? "my-order" : "reserved",
+        text: orderInfo.isCurrentBuyer ? "طلبك قيد التجهيز" : "محجوز",
+        disabled: true,
+        icon: PackageCheck,
+      };
+    }
+
+    if (orderInfo.status === "confirmed") {
+      return {
+        type: orderInfo.isCurrentBuyer ? "my-order" : "reserved",
+        text: orderInfo.isCurrentBuyer ? "تم قبول طلبك" : "محجوز",
+        disabled: true,
+        icon: Check,
+      };
+    }
+
+    if (orderInfo.status === "pending") {
+      return {
+        type: orderInfo.isCurrentBuyer ? "my-order" : "reserved",
+        text: orderInfo.isCurrentBuyer ? "بانتظار رد البائع" : "قيد الطلب",
+        disabled: true,
+        icon: orderInfo.isCurrentBuyer ? Clock3 : LockKeyhole,
+      };
+    }
+
+    if (isInCart(product.id)) {
+      return {
+        type: "in-cart",
+        text: "عرض السلة",
+        disabled: false,
+        icon: Check,
+      };
+    }
+
+    return {
+      type: "available",
+      text: "أضف للسلة",
+      disabled: false,
+      icon: ShoppingCart,
+    };
+  };
+
+  const handleAddToCart = (event, product) => {
+    event.stopPropagation();
+
+    if (!currentUser || !userId) {
       showToast("سجل دخولك أولاً لإضافة المنتجات للسلة", "info");
 
-      setTimeout(() => {
-        navigate("/login", {
-          state: {
-            from: window.location.pathname + window.location.search,
-          },
-        });
-      }, 650);
+      redirectToLogin();
 
       return;
     }
@@ -165,28 +688,158 @@ function Products() {
 
       return;
     }
+
+    /*
+      نقرأ الطلبات مباشرة من localStorage أيضًا.
+      هذا يمنع الإضافة حتى لو state لم تتحدث بعد.
+    */
+
+    const latestOrders = getOrders();
+
+    const existingOrder = getRelevantProductOrder(latestOrders, product.id);
+
+    if (existingOrder) {
+      const status = normalizeOrderStatus(existingOrder.status);
+
+      const buyerId = getOrderBuyerId(existingOrder);
+
+      const isCurrentBuyer =
+        buyerId !== null && String(buyerId) === String(userId);
+
+      refreshOrders();
+
+      if (status === "completed") {
+        showToast(
+          isCurrentBuyer
+            ? "لقد اشتريت هذا المنتج بالفعل"
+            : "عذرًا، تم بيع هذا المنتج",
+          "info",
+        );
+
+        return;
+      }
+
+      if (status === "pending") {
+        showToast(
+          isCurrentBuyer
+            ? "طلبك بانتظار رد البائع"
+            : "هذا المنتج قيد الطلب من مستخدم آخر",
+          "info",
+        );
+
+        return;
+      }
+
+      if (status === "confirmed") {
+        showToast(
+          isCurrentBuyer
+            ? "تم قبول طلبك لهذا المنتج"
+            : "هذا المنتج محجوز حاليًا",
+          "info",
+        );
+
+        return;
+      }
+
+      if (status === "preparing") {
+        showToast(
+          isCurrentBuyer
+            ? "طلبك لهذا المنتج قيد التجهيز"
+            : "هذا المنتج محجوز حاليًا",
+          "info",
+        );
+
+        return;
+      }
+    }
+
     if (isInCart(product.id)) {
       navigate("/cart");
+
       return;
     }
 
-    const productCard = e.currentTarget.closest(".all-product-card");
+    const productCard = event.currentTarget.closest(".all-product-card");
 
     const productImage = productCard?.querySelector(".all-product-image img");
 
     const result = addToCart(userId, product.id);
 
-    if (!result.added) {
+    if (!result?.added) {
       showToast("المنتج موجود في السلة بالفعل", "info");
+
+      refreshCart();
 
       return;
     }
 
-    setCartIds(result.cart);
+    setCartIds(Array.isArray(result.cart) ? result.cart : []);
 
-    animateProductToCart(productImage);
+    if (productImage) {
+      animateProductToCart(productImage);
+    }
+
+    window.dispatchEvent(new Event("bena-cart-updated"));
 
     showToast("تمت إضافة المنتج للسلة ✓", "success");
+  };
+
+  /* FAVORITES */
+
+  const isFavorite = (id) => {
+    return favorites.some((item) => String(item) === String(id));
+  };
+
+  const toggleFavorite = (id) => {
+    if (!currentUser || !userId) {
+      showToast("سجل دخولك أولاً لإضافة المنتجات للمفضلة", "info");
+
+      redirectToLogin();
+
+      return;
+    }
+
+    setFavorites((current) => {
+      const exists = current.some((item) => String(item) === String(id));
+
+      const updated = exists
+        ? current.filter((item) => String(item) !== String(id))
+        : [...current, id];
+
+      const savedFavorites = readStorage("benaFavorites", {});
+
+      const favoritesObject =
+        savedFavorites &&
+        typeof savedFavorites === "object" &&
+        !Array.isArray(savedFavorites)
+          ? savedFavorites
+          : {};
+
+      const updatedAllFavorites = {
+        ...favoritesObject,
+        [userId]: updated,
+      };
+
+      try {
+        localStorage.setItem(
+          "benaFavorites",
+          JSON.stringify(updatedAllFavorites),
+        );
+      } catch {
+        showToast("تعذر تحديث المفضلة", "error");
+
+        return current;
+      }
+
+      window.dispatchEvent(new Event("bena-favorites-updated"));
+
+      showToast(
+        exists ? "تمت إزالة المنتج من المفضلة" : "تمت إضافة المنتج للمفضلة ✓",
+        exists ? "info" : "success",
+      );
+
+      return updated;
+    });
   };
 
   /* DELETE MODAL */
@@ -210,112 +863,81 @@ function Products() {
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    /* SEARCH */
-
     if (search.trim()) {
       const searchValue = search.trim().toLowerCase();
 
       result = result.filter((product) => {
-        const name = product.name?.toLowerCase() || "";
+        const name = String(product?.name || "").toLowerCase();
 
-        const description = product.description?.toLowerCase() || "";
+        const description = String(product?.description || "").toLowerCase();
 
-        const productCategory = product.category?.toLowerCase() || "";
+        const productCategory = String(product?.category || "").toLowerCase();
+
+        const productLocation = String(product?.location || "").toLowerCase();
 
         return (
           name.includes(searchValue) ||
           description.includes(searchValue) ||
-          productCategory.includes(searchValue)
+          productCategory.includes(searchValue) ||
+          productLocation.includes(searchValue)
         );
       });
     }
 
-    /* CATEGORY */
-
     if (category !== "الكل") {
-      result = result.filter((product) => product.category === category);
+      result = result.filter((product) => product?.category === category);
     }
-
-    /* CONDITION */
 
     if (condition !== "الكل") {
-      result = result.filter((product) => product.condition === condition);
+      result = result.filter((product) => product?.condition === condition);
     }
-
-    /* LOCATION */
 
     if (location !== "الكل") {
-      result = result.filter((product) => product.location === location);
+      result = result.filter((product) => product?.location === location);
     }
 
-    /* SORT */
-
     if (sort === "latest") {
-      result.sort((a, b) => Number(b.id) - Number(a.id));
+      result.sort((a, b) => {
+        const aDate = Date.parse(a?.createdAt || "");
+        const bDate = Date.parse(b?.createdAt || "");
+
+        if (
+          Number.isFinite(aDate) &&
+          Number.isFinite(bDate) &&
+          aDate !== bDate
+        ) {
+          return bDate - aDate;
+        }
+
+        if (Number.isFinite(bDate) && !Number.isFinite(aDate)) {
+          return 1;
+        }
+
+        if (Number.isFinite(aDate) && !Number.isFinite(bDate)) {
+          return -1;
+        }
+
+        const aId = Number(a?.id);
+        const bId = Number(b?.id);
+
+        if (Number.isFinite(aId) && Number.isFinite(bId)) {
+          return bId - aId;
+        }
+
+        return String(b?.id || "").localeCompare(String(a?.id || ""));
+      });
     }
 
     if (sort === "low") {
-      result.sort((a, b) => Number(a.price) - Number(b.price));
+      result.sort((a, b) => getProductPrice(a) - getProductPrice(b));
     }
 
     if (sort === "high") {
-      result.sort((a, b) => Number(b.price) - Number(a.price));
+      result.sort((a, b) => getProductPrice(b) - getProductPrice(a));
     }
 
     return result;
-  }, [savedProducts, search, category, condition, location, sort]);
-
-  /* FAVORITES */
-
-  const isFavorite = (id) => {
-    return favorites.some((item) => Number(item) === Number(id));
-  };
-
-  const toggleFavorite = (id) => {
-    if (!currentUser) {
-      showToast("سجل دخولك أولاً لإضافة المنتجات للمفضلة", "info");
-
-      setTimeout(() => {
-        navigate("/login", {
-          state: {
-            from: window.location.pathname + window.location.search,
-          },
-        });
-      }, 650);
-
-      return;
-    }
-
-    setFavorites((current) => {
-      const exists = current.some((item) => Number(item) === Number(id));
-
-      const updated = exists
-        ? current.filter((item) => Number(item) !== Number(id))
-        : [...current, id];
-
-      const allFavorites =
-        JSON.parse(localStorage.getItem("benaFavorites")) || {};
-
-      const favoritesObject = Array.isArray(allFavorites) ? {} : allFavorites;
-
-      const updatedAllFavorites = {
-        ...favoritesObject,
-        [userId]: updated,
-      };
-
-      localStorage.setItem(
-        "benaFavorites",
-        JSON.stringify(updatedAllFavorites),
-      );
-
-      showToast(
-        exists ? "تمت إزالة المنتج من المفضلة" : "تمت إضافة المنتج للمفضلة ✓",
-        exists ? "info" : "success",
-      );
-
-      return updated;
-    });
-  };
+  }, [products, search, category, condition, location, sort]);
 
   /* DELETE PRODUCT */
 
@@ -334,126 +956,236 @@ function Products() {
 
     const productId = productToDelete.id;
 
-    /* DELETE PRODUCT */
-
     const updatedProducts = savedProducts.filter(
-      (item) => Number(item.id) !== Number(productId),
+      (item) => String(item?.id) !== String(productId),
     );
+
+    try {
+      localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
+    } catch {
+      showToast("تعذر حذف المنتج", "error");
+
+      return;
+    }
 
     setSavedProducts(updatedProducts);
 
-    localStorage.setItem("benaProducts", JSON.stringify(updatedProducts));
+    window.dispatchEvent(new Event("bena-products-updated"));
 
-    /* DELETE FAVORITES */
+    /* FAVORITES */
+
+    const savedFavorites = readStorage("benaFavorites", {});
 
     const allFavorites =
-      JSON.parse(localStorage.getItem("benaFavorites")) || {};
+      savedFavorites &&
+      typeof savedFavorites === "object" &&
+      !Array.isArray(savedFavorites)
+        ? savedFavorites
+        : {};
 
-    if (!Array.isArray(allFavorites)) {
-      const updatedAllFavorites = {};
+    const updatedAllFavorites = {};
 
-      Object.entries(allFavorites).forEach(([favoriteUserId, ids]) => {
-        updatedAllFavorites[favoriteUserId] = Array.isArray(ids)
-          ? ids.filter((favoriteId) => Number(favoriteId) !== Number(productId))
-          : [];
-      });
+    Object.entries(allFavorites).forEach(([favoriteUserId, ids]) => {
+      updatedAllFavorites[favoriteUserId] = Array.isArray(ids)
+        ? ids.filter((favoriteId) => String(favoriteId) !== String(productId))
+        : [];
+    });
 
+    try {
       localStorage.setItem(
         "benaFavorites",
         JSON.stringify(updatedAllFavorites),
       );
-
-      if (userId) {
-        setFavorites(updatedAllFavorites[userId] || []);
-      }
-    } else {
-      localStorage.setItem("benaFavorites", JSON.stringify({}));
-
-      setFavorites([]);
+    } catch {
+      // المنتج حُذف بالفعل، لذلك لا نوقف بقية التنظيف
     }
 
-    /* DELETE CART */
+    setFavorites(userId ? updatedAllFavorites[userId] || [] : []);
 
-    const allCarts = JSON.parse(localStorage.getItem("benaCart")) || {};
+    window.dispatchEvent(new Event("bena-favorites-updated"));
 
-    if (!Array.isArray(allCarts)) {
-      const updatedAllCarts = {};
+    /* CART */
 
-      Object.entries(allCarts).forEach(([cartUserId, ids]) => {
-        updatedAllCarts[cartUserId] = Array.isArray(ids)
-          ? ids.filter(
-              (cartProductId) => Number(cartProductId) !== Number(productId),
-            )
-          : [];
-      });
+    const savedCarts = readStorage("benaCart", {});
 
+    const allCarts =
+      savedCarts && typeof savedCarts === "object" && !Array.isArray(savedCarts)
+        ? savedCarts
+        : {};
+
+    const updatedAllCarts = {};
+
+    Object.entries(allCarts).forEach(([cartUserId, ids]) => {
+      updatedAllCarts[cartUserId] = Array.isArray(ids)
+        ? ids.filter(
+            (cartProductId) => String(cartProductId) !== String(productId),
+          )
+        : [];
+    });
+
+    try {
       localStorage.setItem("benaCart", JSON.stringify(updatedAllCarts));
-
-      if (userId) {
-        setCartIds(updatedAllCarts[userId] || []);
-      }
-
-      window.dispatchEvent(new CustomEvent("bena-cart-updated"));
-    } else {
-      localStorage.setItem("benaCart", JSON.stringify({}));
-
-      setCartIds([]);
-
-      window.dispatchEvent(new CustomEvent("bena-cart-updated"));
+    } catch {
+      // المنتج حُذف بالفعل، لذلك لا نوقف بقية التنظيف
     }
 
-    /* DELETE CHATS */
+    setCartIds(userId ? updatedAllCarts[userId] || [] : []);
 
-    const chats = JSON.parse(localStorage.getItem("benaMessages")) || {};
+    window.dispatchEvent(new Event("bena-cart-updated"));
+
+    /* CHATS */
+
+    const savedChats = readStorage("benaMessages", {});
+
+    const chats =
+      savedChats && typeof savedChats === "object" && !Array.isArray(savedChats)
+        ? savedChats
+        : {};
 
     const updatedChats = {};
 
     Object.entries(chats).forEach(([conversationId, conversation]) => {
-      if (Array.isArray(conversation)) {
-        return;
+      let conversationProductId = null;
+
+      if (
+        conversation &&
+        typeof conversation === "object" &&
+        !Array.isArray(conversation) &&
+        conversation.productId !== undefined &&
+        conversation.productId !== null
+      ) {
+        conversationProductId = conversation.productId;
       }
 
-      if (Number(conversation?.productId) !== Number(productId)) {
+      if (conversationProductId === null && Array.isArray(conversation)) {
+        const firstMessage = conversation[0];
+
+        if (
+          firstMessage?.productId !== undefined &&
+          firstMessage?.productId !== null
+        ) {
+          conversationProductId = firstMessage.productId;
+        }
+      }
+
+      if (conversationProductId === null) {
+        const separatorIndex = conversationId.indexOf("_");
+
+        conversationProductId =
+          separatorIndex === -1
+            ? conversationId
+            : conversationId.slice(0, separatorIndex);
+      }
+
+      if (String(conversationProductId) !== String(productId)) {
         updatedChats[conversationId] = conversation;
       }
     });
 
-    localStorage.setItem("benaMessages", JSON.stringify(updatedChats));
+    try {
+      localStorage.setItem("benaMessages", JSON.stringify(updatedChats));
+    } catch {
+      // المنتج حُذف بالفعل، لذلك لا نوقف بقية التنظيف
+    }
 
-    /* DELETE NOTIFICATIONS */
+    window.dispatchEvent(new Event("bena-messages-updated"));
 
-    const notifications =
-      JSON.parse(localStorage.getItem("benaNotifications")) || [];
+    /* NOTIFICATIONS */
+
+    const savedNotifications = readStorage("benaNotifications", []);
+
+    const notifications = Array.isArray(savedNotifications)
+      ? savedNotifications
+      : [];
 
     const updatedNotifications = notifications.filter((notification) => {
-      const productLink = `/products/${productId}`;
+      if (!notification || typeof notification !== "object") {
+        return true;
+      }
 
+      if (
+        notification.productId !== undefined &&
+        notification.productId !== null &&
+        String(notification.productId) === String(productId)
+      ) {
+        return false;
+      }
+
+      const productLink = `/products/${productId}`;
+      const legacyProductLink = `/product/${productId}`;
       const messageLinkStart = `/messages/${productId}`;
 
-      const isProductNotification = notification.link === productLink;
-
-      const isMessageNotification =
-        notification.link?.startsWith(messageLinkStart);
-
-      const isConversationNotification = notification.conversationId
-        ?.toString()
-        .startsWith(`${productId}_`);
+      const notificationLink = String(notification.link || "");
+      const conversationId = String(notification.conversationId || "");
 
       return !(
-        isProductNotification ||
-        isMessageNotification ||
-        isConversationNotification
+        notificationLink === productLink ||
+        notificationLink === legacyProductLink ||
+        notificationLink.startsWith(messageLinkStart) ||
+        conversationId.startsWith(`${productId}_`)
       );
     });
 
-    localStorage.setItem(
-      "benaNotifications",
-      JSON.stringify(updatedNotifications),
-    );
+    try {
+      localStorage.setItem(
+        "benaNotifications",
+        JSON.stringify(updatedNotifications),
+      );
+    } catch {
+      // المنتج حُذف بالفعل، لذلك لا نوقف بقية التنظيف
+    }
+
+    window.dispatchEvent(new Event("bena-notifications-updated"));
 
     closeDeleteModal();
 
     showToast("تم حذف المنتج بنجاح ✓", "success");
+  };
+
+  /* CATEGORY */
+
+  const handleCategoryChange = (item) => {
+    setCategory(item);
+
+    const params = new URLSearchParams();
+
+    if (search.trim()) {
+      params.set("search", search.trim());
+    }
+
+    if (item !== "الكل") {
+      params.set("category", item);
+    }
+
+    const query = params.toString();
+
+    navigate(query ? `/products?${query}` : "/products");
+  };
+
+  /* RESET */
+
+  const resetFilters = () => {
+    setSearch("");
+    setCategory("الكل");
+    setCondition("الكل");
+    setLocation("الكل");
+    setSort("latest");
+
+    navigate("/products");
+  };
+
+  /* PRODUCT KEYBOARD */
+
+  const handleProductKeyDown = (event, productId) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+
+      navigate(`/products/${productId}`);
+    }
   };
 
   return (
@@ -495,13 +1227,14 @@ function Products() {
           {/* SEARCH */}
 
           <div className="products-search">
-            <Search size={20} />
+            <Search size={20} aria-hidden="true" />
 
             <input
-              type="text"
+              type="search"
               placeholder="ابحث عن منتج..."
+              aria-label="البحث عن منتج"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
 
@@ -513,23 +1246,8 @@ function Products() {
                 type="button"
                 key={item}
                 className={category === item ? "active" : ""}
-                onClick={() => {
-                  setCategory(item);
-
-                  const params = new URLSearchParams();
-
-                  if (search.trim()) {
-                    params.set("search", search.trim());
-                  }
-
-                  if (item !== "الكل") {
-                    params.set("category", item);
-                  }
-
-                  const query = params.toString();
-
-                  navigate(query ? `/products?${query}` : "/products");
-                }}
+                aria-pressed={category === item}
+                onClick={() => handleCategoryChange(item)}
               >
                 {item === "الكل" ? "كل التصنيفات" : item}
               </button>
@@ -541,65 +1259,48 @@ function Products() {
 
             <aside className="products-filters">
               <div className="filters-title">
-                <SlidersHorizontal size={18} />
+                <SlidersHorizontal size={18} aria-hidden="true" />
 
                 <h3>تصفية النتائج</h3>
               </div>
 
               <div className="filter-group">
-                <label>الحالة</label>
+                <label htmlFor="condition-filter">الحالة</label>
 
                 <select
+                  id="condition-filter"
                   value={condition}
-                  onChange={(e) => setCondition(e.target.value)}
+                  onChange={(event) => setCondition(event.target.value)}
                 >
                   <option value="الكل">كل الحالات</option>
-
                   <option value="جديد">جديد</option>
-
                   <option value="ممتاز">ممتاز</option>
-
                   <option value="مستخدم">مستخدم</option>
                 </select>
               </div>
 
               <div className="filter-group">
-                <label>الموقع</label>
+                <label htmlFor="location-filter">الموقع</label>
 
                 <select
+                  id="location-filter"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(event) => setLocation(event.target.value)}
                 >
                   <option value="الكل">كل المناطق</option>
 
-                  <option value="غزة">غزة</option>
-
-                  <option value="شمال غزة">شمال غزة</option>
-
-                  <option value="دير البلح">دير البلح</option>
-
-                  <option value="خان يونس">خان يونس</option>
-
-                  <option value="رفح">رفح</option>
+                  {locations.map((item) => (
+                    <option value={item} key={item}>
+                      {item}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <button
                 type="button"
                 className="reset-filters"
-                onClick={() => {
-                  setSearch("");
-
-                  setCategory("الكل");
-
-                  setCondition("الكل");
-
-                  setLocation("الكل");
-
-                  setSort("latest");
-
-                  navigate("/products");
-                }}
+                onClick={resetFilters}
               >
                 مسح الفلاتر
               </button>
@@ -609,136 +1310,184 @@ function Products() {
 
             <section className="products-results">
               <div className="products-results__top">
-                <p>
+                <p aria-live="polite">
                   <strong>{filteredProducts.length}</strong> منتجات
                 </p>
 
-                <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                <select
+                  aria-label="ترتيب المنتجات"
+                  value={sort}
+                  onChange={(event) => setSort(event.target.value)}
+                >
                   <option value="latest">الأحدث</option>
-
                   <option value="low">السعر: الأقل أولاً</option>
-
                   <option value="high">السعر: الأعلى أولاً</option>
                 </select>
               </div>
 
               {filteredProducts.length > 0 ? (
                 <div className="all-products-grid">
-                  {filteredProducts.map((product) => (
-                    <article
-                      key={product.id}
-                      className="all-product-card"
-                      onClick={() => navigate(`/products/${product.id}`)}
-                    >
-                      <div className="all-product-image">
-                        <img src={product.image} alt={product.name} />
+                  {filteredProducts.map((product) => {
+                    const productImage = getProductImage(product);
 
-                        {!isOwner(product) && (
-                          <button
-                            type="button"
-                            className={`all-product-heart ${
-                              isFavorite(product.id) ? "active" : ""
-                            }`}
-                            aria-label="المفضلة"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                    const favorite = isFavorite(product.id);
 
-                              toggleFavorite(product.id);
-                            }}
-                          >
-                            <Heart
-                              size={19}
-                              fill={
-                                isFavorite(product.id) ? "currentColor" : "none"
-                              }
+                    const owner = isOwner(product);
+
+                    const buttonState = getPurchaseButtonState(product);
+
+                    const ButtonIcon = buttonState.icon;
+
+                    return (
+                      <article
+                        key={product.id}
+                        className="all-product-card"
+                        role="link"
+                        tabIndex={0}
+                        aria-label={`عرض ${product.name || "المنتج"}`}
+                        onClick={() => navigate(`/products/${product.id}`)}
+                        onKeyDown={(event) =>
+                          handleProductKeyDown(event, product.id)
+                        }
+                      >
+                        <div className="all-product-image">
+                          {productImage &&
+                          !failedImageIds.has(String(product.id)) ? (
+                            <img
+                              src={productImage}
+                              alt={product.name || "منتج"}
+                              onError={() => {
+                                setFailedImageIds((current) => {
+                                  const updated = new Set(current);
+
+                                  updated.add(String(product.id));
+
+                                  return updated;
+                                });
+                              }}
                             />
-                          </button>
-                        )}
+                          ) : (
+                            <div className="all-product-image-fallback">
+                              <ImageOff size={32} aria-hidden="true" />
+                            </div>
+                          )}
 
-                        <span
-                          className={`all-product-condition ${product.conditionClass}`}
-                        >
-                          {product.condition}
-                        </span>
-                      </div>
+                          {!owner && (
+                            <button
+                              type="button"
+                              className={`all-product-heart ${
+                                favorite ? "active" : ""
+                              }`}
+                              aria-label={
+                                favorite ? "إزالة من المفضلة" : "إضافة للمفضلة"
+                              }
+                              aria-pressed={favorite}
+                              onClick={(event) => {
+                                event.stopPropagation();
 
-                      <div className="all-product-content">
-                        <span className="all-product-category">
-                          {product.category || "أخرى"}
-                        </span>
+                                toggleFavorite(product.id);
+                              }}
+                            >
+                              <Heart
+                                size={19}
+                                fill={favorite ? "currentColor" : "none"}
+                                aria-hidden="true"
+                              />
+                            </button>
+                          )}
 
-                        <h3>{product.name}</h3>
-
-                        <div className="all-product-location">
-                          <MapPin size={13} />
-
-                          {product.location}
-                        </div>
-
-                        <div className="all-product-price">
-                          <strong>
-                            {Number(product.price).toLocaleString()}
-                          </strong>
-
-                          <span>₪</span>
-                        </div>
-
-                        {!isOwner(product) && (
-                          <button
-                            type="button"
-                            className={`all-product-cart ${
-                              isInCart(product.id) ? "in-cart" : ""
-                            }`}
-                            onClick={(e) => handleAddToCart(e, product)}
+                          <span
+                            className={`all-product-condition ${getConditionClass(
+                              product,
+                            )}`}
                           >
-                            {isInCart(product.id) ? (
-                              <>
-                                <Check size={17} />
-                                عرض السلة
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart size={17} />
-                                أضف للسلة
-                              </>
-                            )}
-                          </button>
-                        )}
+                            {product.condition || "مستخدم"}
+                          </span>
+                        </div>
 
-                        {isOwner(product) && (
-                          <div className="all-product-manage">
-                            <button
-                              type="button"
-                              className="all-product-edit"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                        <div className="all-product-content">
+                          <span className="all-product-category">
+                            {product.category || "أخرى"}
+                          </span>
 
-                                navigate(`/edit-product/${product.id}`);
-                              }}
-                            >
-                              تعديل
-                            </button>
+                          <h3>{product.name || "منتج"}</h3>
 
-                            <button
-                              type="button"
-                              className="all-product-delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                          <div className="all-product-location">
+                            <MapPin size={13} aria-hidden="true" />
 
-                                openDeleteModal(product);
-                              }}
-                            >
-                              حذف
-                            </button>
+                            <span>{product.location || "غير محدد"}</span>
                           </div>
-                        )}
-                      </div>
-                    </article>
-                  ))}
+
+                          <div className="all-product-price">
+                            <strong>
+                              {getProductPrice(product).toLocaleString()}
+                            </strong>
+
+                            <span>₪</span>
+                          </div>
+
+                          {!owner && (
+                            <button
+                              type="button"
+                              disabled={buttonState.disabled}
+                              className={`all-product-cart ${
+                                buttonState.type === "in-cart" ? "in-cart" : ""
+                              } ${
+                                buttonState.type === "my-order"
+                                  ? "order-pending"
+                                  : ""
+                              } ${
+                                buttonState.type === "reserved"
+                                  ? "order-reserved"
+                                  : ""
+                              } ${
+                                buttonState.type === "sold" ? "order-sold" : ""
+                              }`}
+                              onClick={(event) =>
+                                handleAddToCart(event, product)
+                              }
+                            >
+                              <ButtonIcon size={17} aria-hidden="true" />
+
+                              {buttonState.text}
+                            </button>
+                          )}
+
+                          {owner && (
+                            <div className="all-product-manage">
+                              <button
+                                type="button"
+                                className="all-product-edit"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+
+                                  navigate(`/edit-product/${product.id}`);
+                                }}
+                              >
+                                تعديل
+                              </button>
+
+                              <button
+                                type="button"
+                                className="all-product-delete"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+
+                                  openDeleteModal(product);
+                                }}
+                              >
+                                حذف
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="no-products">
-                  <Search size={35} />
+                  <Search size={35} aria-hidden="true" />
 
                   <h3>ما لقينا منتجات</h3>
 
@@ -752,26 +1501,38 @@ function Products() {
         {/* DELETE MODAL */}
 
         {productToDelete && (
-          <div className="delete-modal-overlay" onClick={closeDeleteModal}>
-            <div className="delete-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="delete-modal-overlay"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeDeleteModal();
+              }
+            }}
+          >
+            <div
+              className="delete-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-product-title"
+            >
               <button
                 type="button"
                 className="delete-modal-close"
                 onClick={closeDeleteModal}
                 aria-label="إغلاق"
               >
-                <X size={18} />
+                <X size={18} aria-hidden="true" />
               </button>
 
               <div className="delete-modal-icon">
-                <TriangleAlert size={30} />
+                <TriangleAlert size={30} aria-hidden="true" />
               </div>
 
-              <h2>حذف المنتج؟</h2>
+              <h2 id="delete-product-title">حذف المنتج؟</h2>
 
               <p>
                 هل أنت متأكد من حذف
-                <strong> {productToDelete.name}؟</strong>
+                <strong> {productToDelete.name || "هذا المنتج"}؟</strong>
                 <br />
                 لن تتمكن من استرجاعه بعد الحذف.
               </p>
@@ -790,7 +1551,7 @@ function Products() {
                   className="delete-modal-confirm"
                   onClick={deleteProduct}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={17} aria-hidden="true" />
                   حذف المنتج
                 </button>
               </div>
